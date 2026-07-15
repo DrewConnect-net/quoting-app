@@ -234,10 +234,10 @@
   function isExcluded(label){ return !!label && EXCLUDE_RE.test(String(label)); }
 
   // Grade map: eBay condition label -> your internal code. Checked in order.
-  // 00 New · 10 Open box · 20 Excellent · 29 everything else used/refurbished
+  // 00 New · 10 Excellent / Open box · 29 everything else used/refurbished
   // (Very Good, Good, Certified refurbished, Seller refurbished, Used/Pre-owned).
   var GRADE_MAP = [
-    { test:/excellent/i, code:"20" },
+    { test:/excellent/i, code:"10" },
     { test:/open box/i, code:"10" },
     { test:/^(brand\s+)?new\b/i, code:"00" },
     { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
