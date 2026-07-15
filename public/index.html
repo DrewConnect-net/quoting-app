@@ -84,6 +84,11 @@
   .headline .big { font-size:24px; font-weight:600; color:#f5f5f7; font-variant-numeric:tabular-nums; }
   .headline .lab { font-size:12.5px; color:#86868b; }
   .low-supply { color:#ff453a; font-weight:600; }
+  .instock { color:#30d158; font-weight:600; }
+  .nostock { color:#ff453a; font-weight:600; }
+  .mktsearch { display:flex; gap:8px; margin:14px 0 4px; }
+  .mktsearch input { flex:1; padding:8px 12px; border:1px solid #38383a; border-radius:10px; font-size:13.5px; background:#1c1c1e; color:#f5f5f7; }
+  .mktsearch input:focus { outline:none; border-color:#8e8e93; }
   .btn.ghost { background:transparent; color:#f5f5f7; border:1px solid #48484a; }
   .btn.ghost:hover { background:#2c2c2e; }
   .hrow { cursor:pointer; }
@@ -173,7 +178,7 @@
   </div>
 
   <div id="viewMarket" style="display:none">
-    <p class="viewhint">Live eBay market by product. Pick a category, scan quantity available and average price to judge secondary-market supply.</p>
+    <p class="viewhint">Every mainstream model, checked live against eBay. <b>Live listings</b> is eBay's active-listing count right now; a model with none in the market shows <b>0</b>. Pick a category below.</p>
     <div class="segtabs" id="segTabs">
       <button class="segtab active" data-seg="0">Samsung Phones</button>
       <button class="segtab" data-seg="1">Samsung Tablets</button>
@@ -182,8 +187,11 @@
     </div>
     <div class="panel">
       <div class="headline"><span class="big" id="mktTotal">—</span><span class="lab" id="mktLab"></span></div>
+      <div class="mktsearch">
+        <input id="mktFilter" type="text" placeholder="Filter models in this category… (e.g. iPhone 11, S24, Tab S9)">
+      </div>
       <table class="lt">
-        <thead><tr><th>Product</th><th>Carrier</th><th class="num">GB</th><th class="num">Listings</th><th class="num">Avg price (live)</th></tr></thead>
+        <thead><tr><th>Product</th><th class="num">Live listings</th><th class="num">Avg price (live)</th><th class="ctr">Status</th></tr></thead>
         <tbody id="mktBody"></tbody>
       </table>
     </div>
@@ -662,103 +670,145 @@
     });
   }
 
-  /* ---------- FUNCTION 2: live market database (sample catalog) ---------- */
+  /* ---------- FUNCTION 2: live market database ----------
+     Every mainstream model in each category. Each row fires ONE lightweight
+     /api/market lookup (single eBay search, NO per-item enrichment), throttled to
+     a few at a time and cached for the session, so a full tab stays cheap on the
+     free instance. A model with no active eBay listings comes back 0. */
   var MARKET = [
-    { name:"Samsung Phones", total:"59,000+", rows:[
-      ["Galaxy S25 Ultra","Unlocked","512",210,720],
-      ["Galaxy S24 Ultra","Unlocked","512",480,567],
-      ["Galaxy S24 Ultra","AT&T","256",95,520],
-      ["Galaxy S23","Unlocked","128",610,300],
-      ["Galaxy S22","Unlocked","128",1200,155],
-      ["Galaxy S22","Verizon","128",340,140],
-      ["Galaxy S21","Unlocked","128",1500,130],
-      ["Galaxy S21","T-Mobile","128",420,120],
-      ["Galaxy Z Flip5","Unlocked","512",180,240],
-      ["Galaxy A54 5G","Unlocked","128",260,145],
-      ["Galaxy A15 5G","Unlocked","128",300,123]
+    { name:"Samsung Phones", models:[
+      "Galaxy S25 Ultra","Galaxy S25+","Galaxy S25","Galaxy S25 Edge",
+      "Galaxy S24 Ultra","Galaxy S24+","Galaxy S24","Galaxy S24 FE",
+      "Galaxy S23 Ultra","Galaxy S23+","Galaxy S23","Galaxy S23 FE",
+      "Galaxy S22 Ultra","Galaxy S22+","Galaxy S22",
+      "Galaxy S21 Ultra","Galaxy S21+","Galaxy S21","Galaxy S21 FE",
+      "Galaxy S20 Ultra","Galaxy S20+","Galaxy S20","Galaxy S20 FE",
+      "Galaxy Note 20 Ultra","Galaxy Note 20",
+      "Galaxy Z Fold6","Galaxy Z Flip6","Galaxy Z Fold5","Galaxy Z Flip5",
+      "Galaxy Z Fold4","Galaxy Z Flip4","Galaxy Z Fold3","Galaxy Z Flip3",
+      "Galaxy A55 5G","Galaxy A54 5G","Galaxy A35 5G","Galaxy A25 5G",
+      "Galaxy A15 5G","Galaxy A14 5G","Galaxy A53 5G"
     ]},
-    { name:"Samsung Tablets", total:"22,000+", rows:[
-      ["Galaxy Tab S11","Wi-Fi","512",40,750],
-      ["Galaxy Tab S10 FE","Wi-Fi","128",120,300],
-      ["Galaxy Tab S8+","Wi-Fi","128",210,200],
-      ["Galaxy Tab S7","Wi-Fi","256",330,132],
-      ["Galaxy Tab A11","Wi-Fi","64",480,130],
-      ["Galaxy Tab A9+","Wi-Fi","64",520,88],
-      ["Galaxy Tab A8","Wi-Fi","64",610,90]
+    { name:"Samsung Tablets", models:[
+      "Galaxy Tab S11 Ultra","Galaxy Tab S11",
+      "Galaxy Tab S10 Ultra","Galaxy Tab S10+","Galaxy Tab S10 FE",
+      "Galaxy Tab S9 Ultra","Galaxy Tab S9+","Galaxy Tab S9","Galaxy Tab S9 FE+","Galaxy Tab S9 FE",
+      "Galaxy Tab S8 Ultra","Galaxy Tab S8+","Galaxy Tab S8",
+      "Galaxy Tab S7 FE","Galaxy Tab S7+","Galaxy Tab S7",
+      "Galaxy Tab A9+","Galaxy Tab A9","Galaxy Tab A8","Galaxy Tab A7 Lite"
     ]},
-    { name:"Apple iPhone", total:"93,000+", rows:[
-      ["iPhone 17","Unlocked","256",90,775],
-      ["iPhone 16 Pro","Unlocked","128",260,565],
-      ["iPhone 16","Unlocked","128",340,549],
-      ["iPhone 15","Unlocked","128",720,384],
-      ["iPhone 14","Unlocked","128",1400,260],
-      ["iPhone 14","AT&T","128",380,240],
-      ["iPhone 13","Unlocked","128",1900,255],
-      ["iPhone 13","Verizon","128",520,240],
-      ["iPhone 12","Unlocked","64",2600,160],
-      ["iPhone 12","T-Mobile","128",610,175],
-      ["iPhone 11","Unlocked","64",3100,105]
+    { name:"Apple iPhone", models:[
+      "iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17 Plus","iPhone 17",
+      "iPhone 16 Pro Max","iPhone 16 Pro","iPhone 16 Plus","iPhone 16","iPhone 16e",
+      "iPhone 15 Pro Max","iPhone 15 Pro","iPhone 15 Plus","iPhone 15",
+      "iPhone 14 Pro Max","iPhone 14 Pro","iPhone 14 Plus","iPhone 14",
+      "iPhone 13 Pro Max","iPhone 13 Pro","iPhone 13","iPhone 13 mini",
+      "iPhone 12 Pro Max","iPhone 12 Pro","iPhone 12","iPhone 12 mini",
+      "iPhone 11 Pro Max","iPhone 11 Pro","iPhone 11",
+      "iPhone XS Max","iPhone XS","iPhone XR","iPhone X",
+      "iPhone SE (2022)","iPhone SE (2020)",
+      "iPhone 8 Plus","iPhone 8"
     ]},
-    { name:"Apple iPad", total:"48,000+", rows:[
-      ["iPad 11th Gen","Wi-Fi","128",120,399],
-      ["iPad 10th Gen","Wi-Fi","256",260,370],
-      ["iPad 9th Gen","Wi-Fi","64",900,159],
-      ["iPad Air 5th","Wi-Fi","64",210,245],
-      ["iPad Air 4th","Wi-Fi","64",340,170],
-      ["iPad Pro 10.5\"","Wi-Fi","64",280,105]
+    { name:"Apple iPad", models:[
+      "iPad Pro 13 M4","iPad Pro 11 M4",
+      "iPad Pro 12.9 (6th gen)","iPad Pro 12.9 (5th gen)","iPad Pro 12.9 (4th gen)",
+      "iPad Pro 11 (4th gen)","iPad Pro 11 (3rd gen)","iPad Pro 11 (2nd gen)",
+      "iPad Air 13 M2","iPad Air 11 M2","iPad Air (5th gen)","iPad Air (4th gen)","iPad Air (3rd gen)",
+      "iPad (11th gen)","iPad (10th gen)","iPad (9th gen)","iPad (8th gen)","iPad (7th gen)",
+      "iPad mini (7th gen)","iPad mini (6th gen)","iPad mini (5th gen)"
     ]}
   ];
-  var LOW_SUPPLY = 10;
-  var marketToken = 0;   // guards against overlapping segment loads
+  var LOW_SUPPLY = 10;      // fewer than this many live listings = thin market
+  var CONCURRENCY = 5;      // simultaneous /api/market lookups per tab load
+  var marketToken = 0;      // guards against overlapping segment loads
+  var marketCache = {};     // query -> { total, avgPrice } for the session (avoids re-hitting eBay)
 
-  // Live market database: for each product in the segment, run a real /api/search
-  // and fill in the live average price + a sampled live listing count.
+  // One lightweight market lookup, memoized for the session.
+  function marketLookup(q){
+    if (marketCache[q]) return Promise.resolve(marketCache[q]);
+    return fetch("/api/market?q=" + encodeURIComponent(q))
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        var v = {
+          total: (typeof data.total === "number") ? data.total : (typeof data.count === "number" ? data.count : null),
+          avgPrice: (data.avgPrice != null) ? data.avgPrice : null
+        };
+        marketCache[q] = v;
+        return v;
+      });
+  }
+
   function renderMarket(idx){
     var seg = MARKET[idx];
+    var models = seg.models;
+    $("mktFilter").value = "";
     $("mktTotal").textContent = "…";
-    $("mktLab").textContent = "loading live eBay averages for " + seg.name.toLowerCase() + "…";
-    $("mktBody").innerHTML = seg.rows.map(function(r, i){
-      return "<tr data-row='"+i+"'><td class='gname'>"+escapeHtml(r[0])+"</td>"+
-        "<td>"+escapeHtml(r[1])+"</td>"+
-        "<td class='num'>"+escapeHtml(r[2])+"GB</td>"+
+    $("mktLab").textContent = "checking live eBay supply for " + models.length + " " + seg.name.toLowerCase() + " models…";
+    $("mktBody").innerHTML = models.map(function(m, i){
+      return "<tr data-row='"+i+"' data-name='"+escapeHtml(m.toLowerCase())+"'><td class='gname'>"+escapeHtml(m)+"</td>"+
         "<td class='num' data-qty>…</td>"+
-        "<td class='num' data-avg>…</td></tr>";
+        "<td class='num' data-avg>…</td>"+
+        "<td class='ctr' data-status>…</td></tr>";
     }).join("");
 
-    var token = ++marketToken, done = 0, totalFound = 0;
-    seg.rows.forEach(function(r, i){
-      var q = [r[0], r[1], r[2] + "GB"].join(" ");
-      fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
-        .then(function(res){ return res.json(); })
-        .then(function(data){
-          if (token !== marketToken) return;
-          var row = document.querySelector("#mktBody tr[data-row='" + i + "']");
-          if (!row) return;
-          var items = (data.results || []).filter(function(x){ return x.price != null && !isExcluded(x.grade); });
-          var qEl = row.querySelector("[data-qty]"), aEl = row.querySelector("[data-avg]");
-          if (items.length){
-            var prices = items.map(function(x){ return x.price; });
-            var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
-            qEl.textContent = items.length.toLocaleString();
-            qEl.className = "num" + (items.length < LOW_SUPPLY ? " low-supply" : "");
-            aEl.textContent = money(avg);
-            totalFound += items.length;
-          } else {
-            qEl.textContent = "0"; aEl.textContent = "—";
-          }
-        })
-        .catch(function(){
-          if (token !== marketToken) return;
-          var row = document.querySelector("#mktBody tr[data-row='" + i + "']");
-          if (row){ row.querySelector("[data-qty]").textContent = "—"; row.querySelector("[data-avg]").textContent = "—"; }
-        })
-        .then(function(){
-          if (token !== marketToken) return;
-          if (++done === seg.rows.length){
-            $("mktTotal").textContent = totalFound.toLocaleString() + "+";
-            $("mktLab").textContent = "live eBay averages in " + seg.name.toLowerCase() + " · price per model is live; count is a sampled signal (≤50/model)";
-          }
-        });
+    var token = ++marketToken, done = 0, inStock = 0, next = 0;
+
+    function fill(i, v){
+      if (token !== marketToken) return;
+      var row = document.querySelector("#mktBody tr[data-row='" + i + "']");
+      if (!row) return;
+      var qEl = row.querySelector("[data-qty]"), aEl = row.querySelector("[data-avg]"), sEl = row.querySelector("[data-status]");
+      var total = v ? v.total : null;
+      if (total == null){
+        qEl.textContent = "—"; qEl.className = "num";
+        aEl.textContent = "—";
+        sEl.innerHTML = "<span class='grade-none'>—</span>";
+      } else if (total <= 0){
+        qEl.textContent = "0"; qEl.className = "num nostock";
+        aEl.textContent = "—";
+        sEl.innerHTML = "<span class='nostock'>0 · none listed</span>";
+      } else {
+        qEl.textContent = total.toLocaleString();
+        qEl.className = "num" + (total < LOW_SUPPLY ? " low-supply" : "");
+        aEl.textContent = (v.avgPrice != null) ? money(v.avgPrice) : "—";
+        sEl.innerHTML = (total < LOW_SUPPLY)
+          ? "<span class='low-supply'>Low supply</span>"
+          : "<span class='instock'>In market</span>";
+        inStock++;
+      }
+    }
+
+    // Concurrency-limited pump: keep at most CONCURRENCY lookups in flight.
+    function pump(){
+      if (token !== marketToken) return;
+      while (next < models.length && (next - done) < CONCURRENCY){
+        (function(i){
+          marketLookup(models[i])
+            .then(function(v){ fill(i, v); })
+            .catch(function(){ fill(i, null); })
+            .then(function(){
+              if (token !== marketToken) return;
+              done++;
+              if (done === models.length){
+                $("mktTotal").textContent = inStock + "/" + models.length;
+                $("mktLab").textContent = "models with live eBay listings · count is eBay's active-listing total · 0 = not in the market right now";
+              } else {
+                pump();
+              }
+            });
+        })(next);
+        next++;
+      }
+    }
+    pump();
+  }
+
+  // Client-side filter over the current category's rows.
+  function filterMarket(){
+    var term = ($("mktFilter").value || "").trim().toLowerCase();
+    Array.prototype.forEach.call(document.querySelectorAll("#mktBody tr"), function(row){
+      var name = row.getAttribute("data-name") || "";
+      row.style.display = (!term || name.indexOf(term) !== -1) ? "" : "none";
     });
   }
 
@@ -790,6 +840,7 @@
   $("q").addEventListener("keydown", function(e){ if(e.key === "Enter") doSearch(); });
   $("need").addEventListener("keydown", function(e){ if(e.key === "Enter") doSearch(); });
   $("need").addEventListener("input", function(){ if(currentQuery){ doSearch(); } });
+  $("mktFilter").addEventListener("input", filterMarket);
 
   Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(st){
     st.addEventListener("click", function(){
