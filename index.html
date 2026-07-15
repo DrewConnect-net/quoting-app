@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Pricing Tool</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         background:#f6f7f9; color:#1a1d21; font-size:14px; line-height:1.5; }
+  .wrap { max-width:780px; margin:0 auto; padding:32px 22px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:#6b7280; font-size:12.5px; margin:0 0 20px; }
+  .tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid #e5e7eb; }
+  .tab { background:none; border:0; border-bottom:2px solid transparent; padding:8px 14px; font-size:13.5px; font-weight:600; color:#6b7280; cursor:pointer; margin-bottom:-1px; }
+  .tab.active { color:#2563eb; border-bottom-color:#2563eb; }
+  .saverow { display:flex; align-items:center; gap:10px; margin-top:20px; }
+  .savebtn { background:#059669; }
+  .saved-msg { font-size:12.5px; color:#059669; font-weight:600; }
+  .segtabs { display:flex; flex-wrap:nowrap; gap:2px; margin-top:16px; border-bottom:1px solid #cbd5e1; overflow-x:auto; }
+  .segtab { background:#eef1f5; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; padding:7px 16px; font-size:13px; font-weight:600; color:#475569; cursor:pointer; white-space:nowrap; position:relative; top:1px; }
+  .segtab:hover { background:#f8fbff; color:#1d4ed8; }
+  .segtab.active { background:#fff; color:#1a1d21; border-bottom:1px solid #fff; }
+  .searchbar { display:flex; gap:8px; }
+  .searchbar input { flex:1; padding:11px 13px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; background:#fff; color:#1a1d21; }
+  .searchbar input:focus { outline:2px solid #93c5fd; outline-offset:-1px; border-color:#60a5fa; }
+  .btn { background:#2563eb; color:#fff; border:0; border-radius:8px; padding:11px 20px; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn:active { transform:translateY(1px); }
+  .demo-banner { background:#fef3c7; color:#92400e; border:1px solid #fde68a; border-radius:8px; padding:8px 12px; font-size:12px; margin-top:14px; display:none; }
+  .cards { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:22px; }
+  @media (max-width:640px){ .cards { grid-template-columns:repeat(2,1fr); } }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 10px; text-align:center; }
+  .card .lab { font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; }
+  .card .val { font-size:24px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .card.low .val { color:#059669; } .card.high .val { color:#b45309; }
+  .card.msrp .val { color:#7c3aed; } .card.qty .val { color:#2563eb; } .card.vend .val { color:#1a1d21; }
+  .card .val small { font-size:13px; font-weight:600; color:#9ca3af; }
+  h2.sec { font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; margin:22px 0 8px; }
+  table.gt, table.lt { width:100%; border-collapse:collapse; background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  table.gt th, table.gt td, table.lt th, table.lt td { padding:9px 12px; font-size:13px; text-align:left; border-bottom:1px solid #eceef1; }
+  table.gt th, table.lt th { background:#f9fafb; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:#6b7280; }
+  table.gt td.num, table.gt th.num, table.lt td.num, table.lt th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.gt td.ctr, table.gt th.ctr, table.lt td.ctr, table.lt th.ctr { text-align:center; }
+  table.gt tr:last-child td, table.lt tr:last-child td { border-bottom:0; }
+  .gname { font-weight:600; }
+  .grade-badge { display:inline-block; background:#eef2ff; color:#4338ca; font-weight:700; padding:2px 8px; border-radius:999px; font-size:12px; }
+  .grade-none { color:#c0c4cc; }
+  .buylink { display:inline-block; background:#eff6ff; color:#1d4ed8; font-weight:600; text-decoration:none; padding:4px 10px; border-radius:7px; font-size:12px; white-space:nowrap; }
+  .buylink:hover { background:#dbeafe; }
+  .seller { color:#374151; }
+  .status { text-align:center; color:#9ca3af; font-size:13px; margin-top:24px; }
+  .err { text-align:center; color:#b91c1c; font-size:13px; margin-top:16px; }
+  .foot { text-align:center; color:#9ca3af; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sales Pricing Tool</h1>
+  <p class="sub">Search a product to see price range, average price, quantity, vendors, a grade breakdown, and live listing links to send to purchasing.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-view="search">Search</button>
+    <button class="tab" data-view="history">Quote history</button>
+  </div>
+
+  <div id="viewSearch">
+  <div class="searchbar">
+    <input id="q" type="text" placeholder="e.g. iPhone 12 64GB unlocked" autofocus>
+    <button class="btn" id="searchBtn">Search</button>
+  </div>
+  <div class="segtabs" id="segTabs">
+    <button class="segtab" data-seg="samsung-phone" data-query="Samsung Galaxy phone unlocked">Samsung Phones</button>
+    <button class="segtab" data-seg="samsung-tablet" data-query="Samsung Galaxy Tab">Samsung Tablets</button>
+    <button class="segtab" data-seg="apple-phone" data-query="Apple iPhone unlocked">Apple iPhone</button>
+    <button class="segtab" data-seg="apple-tablet" data-query="Apple iPad">Apple iPad</button>
+  </div>
+  <div class="demo-banner" id="demoBanner">Showing <b>sample data</b> — live eBay results appear once the API key is configured.</div>
+
+  <div id="summary" style="display:none">
+    <div class="saverow">
+      <button class="btn savebtn" id="saveBtn">Save to quote history</button>
+      <span class="saved-msg" id="savedMsg"></span>
+    </div>
+    <div class="cards">
+      <div class="card low"><div class="lab">Lowest</div><div class="val" id="valLow">—</div></div>
+      <div class="card msrp"><div class="lab">Average</div><div class="val" id="valMsrp">—</div></div>
+      <div class="card high"><div class="lab">Highest</div><div class="val" id="valHigh">—</div></div>
+      <div class="card qty"><div class="lab">Quantity</div><div class="val" id="valQty">—</div></div>
+      <div class="card vend"><div class="lab">Vendors</div><div class="val" id="valVend">—</div></div>
+    </div>
+
+    <h2 class="sec">By condition / grade</h2>
+    <table class="gt">
+      <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Listings</th><th class="num">Price range</th><th class="num">Qty</th></tr></thead>
+      <tbody id="gradeBody"></tbody>
+    </table>
+
+    <h2 class="sec">Listings — send to purchasing</h2>
+    <table class="lt">
+      <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Price</th><th class="num">Qty</th><th>Seller</th><th>Link</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+  </div>
+
+  <div class="status" id="status">Enter a product above and hit Search.</div>
+  <div class="err" id="err"></div>
+  </div>
+
+  <div id="viewHistory" style="display:none">
+    <h2 class="sec">Quote history</h2>
+    <table class="lt">
+      <thead><tr><th>Quote #</th><th>Product</th><th class="num">Avg price (live)</th><th class="num">Qty avail. (live)</th><th>Date quoted</th></tr></thead>
+      <tbody id="histBody"></tbody>
+    </table>
+    <div class="status" id="histStatus">No quotes saved yet.</div>
+  </div>
+
+  <div class="foot">Live pricing from eBay.</div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  function money(n){ return "$" + n.toFixed(2); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+  function toQty(v){
+    if (v == null) return 0;
+    if (typeof v === "number") return v;
+    var n = parseInt(String(v).replace(/[^0-9]/g, ""), 10);
+    return isFinite(n) ? n : 0;
+  }
+
+  // "For parts / not working" is excluded entirely from the tool.
+  var EXCLUDE_RE = /parts|not working/i;
+  function isExcluded(label){ return !!label && EXCLUDE_RE.test(String(label)); }
+
+  // Grade map: eBay condition label -> your internal code. Checked in order.
+  // 00 New · 10 Open box · 20 Excellent · 29 everything else used/refurbished
+  // (Very Good, Good, Certified refurbished, Seller refurbished, Used/Pre-owned).
+  var GRADE_MAP = [
+    { test:/excellent/i, code:"20" },
+    { test:/open box/i, code:"10" },
+    { test:/^(brand\s+)?new\b/i, code:"00" },
+    { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
+  ];
+  function gradeCode(label){
+    if (!label || isExcluded(label)) return null;
+    var s = String(label).trim();
+    for (var i=0;i<GRADE_MAP.length;i++){ if (GRADE_MAP[i].test.test(s)) return GRADE_MAP[i].code; }
+    return null;
+  }
+  function gradeBadge(label){
+    var c = gradeCode(label);
+    return c ? '<span class="grade-badge">'+c+'</span>' : '<span class="grade-none">—</span>';
+  }
+
+  var currentQuery = "";
+  var lastQuote = null;   // { product, avgPrice, quantity } captured from the last render
+
+  function doSearch(){
+    var q = $("q").value.trim();
+    if(!q) return;
+    currentQuery = q;
+    $("savedMsg").textContent = "";
+    $("summary").style.display = "none";
+    $("err").textContent = "";
+    $("status").textContent = "Searching eBay…";
+    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        $("demoBanner").style.display = data.demo ? "block" : "none";
+        render(data.results || []);
+        if (data.errors && data.errors.length){
+          $("err").textContent = data.errors.map(function(e){ return e.source + ": " + e.error; }).join(" · ");
+        }
+      })
+      .catch(function(e){ $("status").textContent=""; $("err").textContent = "Search failed: " + e.message; });
+  }
+
+  function render(items){
+    items = items.filter(function(i){ return !isExcluded(i.grade); });
+    var priced = items.filter(function(i){ return i.price != null; });
+    if (!priced.length){
+      $("summary").style.display = "none";
+      $("status").textContent = "No priced listings found for that search.";
+      return;
+    }
+    var prices = priced.map(function(i){ return i.price; });
+    var low = Math.min.apply(null, prices);
+    var high = Math.max.apply(null, prices);
+    var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
+
+    var totalQty = items.reduce(function(s,i){ return s + toQty(i.quantity); }, 0);
+    var qtyKnown = items.some(function(i){ return i.quantity != null; });
+
+    var sellers = {}, haveSellers = false;
+    items.forEach(function(i){ if (i.seller){ sellers[i.seller]=1; haveSellers=true; } });
+    var vendors = haveSellers ? Object.keys(sellers).length : items.length;
+
+    $("valLow").textContent = money(low);
+    $("valMsrp").textContent = money(avg);
+    $("valHigh").textContent = money(high);
+    $("valQty").innerHTML = qtyKnown ? totalQty : '—';
+    $("valVend").innerHTML = vendors + ' <small>' + (haveSellers ? 'sellers' : 'listings') + '</small>';
+
+    renderGrades(items);
+    renderListings(priced);
+
+    lastQuote = {
+      product: currentQuery,
+      avgPrice: Math.round(avg * 100) / 100,
+      quantity: qtyKnown ? totalQty : null,
+    };
+
+    $("status").textContent = "Based on " + priced.length + " eBay listing(s).";
+    $("summary").style.display = "block";
+  }
+
+  function renderGrades(items){
+    var groups = {};
+    items.forEach(function(i){
+      var g = (i.grade && String(i.grade).trim()) || "Unspecified";
+      if (!groups[g]) groups[g] = { count:0, prices:[], qty:0, qtyKnown:false };
+      var gr = groups[g];
+      gr.count++;
+      if (i.price != null) gr.prices.push(i.price);
+      if (i.quantity != null){ gr.qtyKnown=true; gr.qty += toQty(i.quantity); }
+    });
+    var names = Object.keys(groups).sort(function(a,b){
+      var pa = groups[a].prices.length ? Math.min.apply(null, groups[a].prices) : Infinity;
+      var pb = groups[b].prices.length ? Math.min.apply(null, groups[b].prices) : Infinity;
+      return pa - pb;
+    });
+    $("gradeBody").innerHTML = names.map(function(g){
+      var gr = groups[g], range = "—";
+      if (gr.prices.length){
+        var lo = Math.min.apply(null, gr.prices), hi = Math.max.apply(null, gr.prices);
+        range = lo===hi ? money(lo) : money(lo)+"–"+money(hi);
+      }
+      return "<tr><td class='gname'>"+escapeHtml(g)+"</td><td class='ctr'>"+gradeBadge(g)+
+        "</td><td class='num'>"+gr.count+"</td><td class='num'>"+range+
+        "</td><td class='num'>"+(gr.qtyKnown?gr.qty:"—")+"</td></tr>";
+    }).join("");
+  }
+
+  function renderListings(priced){
+    var rows = priced.slice().sort(function(a,b){ return a.price - b.price; });
+    $("listBody").innerHTML = rows.map(function(i){
+      var link = i.url
+        ? '<a class="buylink" href="'+escapeHtml(i.url)+'" target="_blank" rel="noopener">View on eBay</a>'
+        : '<span class="grade-none">—</span>';
+      var qty = i.quantity!=null ? escapeHtml(String(i.quantity)) : "—";
+      var seller = i.seller ? '<span class="seller">'+escapeHtml(i.seller)+'</span>' : "—";
+      return "<tr><td>"+escapeHtml(i.grade||"—")+"</td><td class='ctr'>"+gradeBadge(i.grade)+
+        "</td><td class='num'>"+money(i.price)+"</td><td class='num'>"+qty+
+        "</td><td>"+seller+"</td><td>"+link+"</td></tr>";
+    }).join("");
+  }
+
+  /* ---------- save quote + history ---------- */
+  function saveQuote(){
+    if (!lastQuote){ return; }
+    $("saveBtn").disabled = true;
+    fetch("/api/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lastQuote),
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(rec){
+        $("savedMsg").textContent = "Saved as " + rec.quoteNumber;
+        loadHistory();
+      })
+      .catch(function(e){ $("savedMsg").textContent = "Save failed: " + e.message; })
+      .finally(function(){ $("saveBtn").disabled = false; });
+  }
+
+  function fmtDate(iso){
+    var d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleString(undefined, { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  }
+
+  function loadHistory(){
+    fetch("/api/quotes").then(function(r){ return r.json(); }).then(function(list){
+      if (!list.length){ $("histBody").innerHTML = ""; $("histStatus").textContent = "No quotes saved yet."; return; }
+      $("histStatus").textContent = list.length + " quote(s) saved.";
+      $("histBody").innerHTML = list.map(function(q){
+        return "<tr><td class='gname'>" + escapeHtml(q.quoteNumber) + "</td>" +
+          "<td>" + escapeHtml(q.product) + "</td>" +
+          "<td class='num'>" + (q.avgPrice!=null ? money(q.avgPrice) : "—") + "</td>" +
+          "<td class='num'>" + (q.quantity!=null ? escapeHtml(String(q.quantity)) : "—") + "</td>" +
+          "<td>" + escapeHtml(fmtDate(q.dateQuoted)) + "</td></tr>";
+      }).join("");
+    }).catch(function(){});
+  }
+
+  function switchView(view){
+    $("viewSearch").style.display  = view === "search"  ? "block" : "none";
+    $("viewHistory").style.display = view === "history" ? "block" : "none";
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+      t.classList.toggle("active", t.getAttribute("data-view") === view);
+    });
+    if (view === "history") loadHistory();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+    t.addEventListener("click", function(){ switchView(t.getAttribute("data-view")); });
+  });
+  $("saveBtn").addEventListener("click", saveQuote);
+  $("searchBtn").addEventListener("click", doSearch);
+  $("q").addEventListener("keydown", function(e){ if(e.key === "Enter") doSearch(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(st){
+    st.addEventListener("click", function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(x){ x.classList.remove("active"); });
+      st.classList.add("active");
+      $("q").value = st.getAttribute("data-query");
+      doSearch();
+    });
+  });
+  $("q").addEventListener("input", function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(x){ x.classList.remove("active"); });
+  });
+
+  loadHistory();
+})();
+</script>
+</body>
+</html>

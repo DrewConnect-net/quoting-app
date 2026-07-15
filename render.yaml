@@ -1,0 +1,25 @@
+# One-click deploy to Render (https://render.com).
+# 1. Push this quoting-app folder to a GitHub repo.
+# 2. In Render: New → Blueprint → point at the repo. This file configures the rest.
+# 3. After it deploys, set the EBAY_CLIENT_ID / EBAY_CLIENT_SECRET env vars in the
+#    Render dashboard (Environment tab) — never commit real keys to the repo.
+services:
+  - type: web
+    name: marketplace-quoting-app
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    envVars:
+      - key: EBAY_ENABLED
+        value: "true"
+      - key: EBAY_MARKETPLACE_ID
+        value: EBAY_US
+      - key: EBAY_CLIENT_ID
+        sync: false   # set in dashboard
+      - key: EBAY_CLIENT_SECRET
+        sync: false   # set in dashboard
+      - key: AMAZON_ENABLED
+        value: "false"
+      - key: BACKMARKET_ENABLED
+        value: "false"
