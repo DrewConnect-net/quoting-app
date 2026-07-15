@@ -115,6 +115,33 @@ app.get("/api/search", async (req, res) => {
   res.json({ query: q, demo: false, results, errors });
 });
 
+// GET /api/market?q=...  Lightweight lookup for the "Market database" tab.
+// Runs exactly ONE eBay search with NO per-item enrichment (enrichCount:0), so a
+// tab that checks ~40 models stays cheap on the free instance. Returns eBay's own
+// active-listing total (market-supply signal) plus a sampled average price.
+// A model with no matching listings comes back total:0 -> the UI shows it as 0.
+app.get("/api/market", async (req, res) => {
+  const q = (req.query.q || "").toString().trim();
+  if (!q) return res.status(400).json({ error: "Missing query param 'q'." });
+
+  if (!ebay.meta.isEnabled()) {
+    return res.json({ query: q, demo: true, ...demoMarket(q) });
+  }
+
+  try {
+    const r = await ebay.search(q, { limit: 50, enrichCount: 0 });
+    const priced = (r.items || []).filter((x) => x.price != null);
+    const avgPrice = priced.length
+      ? Math.round((priced.reduce((a, b) => a + b.price, 0) / priced.length) * 100) / 100
+      : null;
+    const total = typeof r.total === "number" ? r.total : priced.length;
+    res.json({ query: q, demo: false, total, count: priced.length, avgPrice });
+  } catch (e) {
+    // Never fail the whole tab because one model errored — report it as unknown.
+    res.json({ query: q, demo: false, total: null, count: 0, avgPrice: null, error: e.message });
+  }
+});
+
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {
@@ -146,6 +173,14 @@ function demoResults(q, limit) {
     url: `https://www.ebay.com/itm/sample-${i + 1}`,
     image: null,
   })).sort((a, b) => a.price - b.price);
+}
+
+// Deterministic sample market numbers so the Market tab is usable without keys.
+function demoMarket(q) {
+  const h = hash(q);
+  const total = 50 + (h % 3000);
+  const avgPrice = Math.round((80 + (h % 900)) * 100) / 100;
+  return { total, count: Math.min(50, total), avgPrice };
 }
 
 function hash(s) {
