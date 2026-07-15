@@ -17,6 +17,29 @@ app.use(express.json());
 
 const SOURCES = { ebay, amazon, backmarket };
 
+// ---- Market lookup cache ----
+// The "Market database" tab checks ~40 models per tab (117 across all tabs). Each
+// is a live eBay call, so without caching a few users browsing every tab can burn
+// through eBay's daily Browse-API quota and start getting 429s. We cache each
+// model's result for MARKET_CACHE_TTL_MS (default 45 min). On an eBay error (e.g.
+// 429) we serve the last-known value even if stale, so the tab stays usable while
+// eBay is rate-limited. Cache is in-memory; it resets on redeploy/restart, which
+// is fine — it just repopulates lazily.
+const MARKET_CACHE_TTL_MS = parseInt(process.env.MARKET_CACHE_TTL_MS, 10) || 45 * 60 * 1000;
+const marketCache = new Map(); // key -> { data, ts }
+
+function marketCacheGet(key) {
+  return marketCache.get(key) || null;
+}
+function marketCacheSet(key, data) {
+  marketCache.set(key, { data, ts: Date.now() });
+  // Light pruning so the map can't grow without bound if queries vary a lot.
+  if (marketCache.size > 500) {
+    const cutoff = Date.now() - MARKET_CACHE_TTL_MS * 4;
+    for (const [k, v] of marketCache) if (v.ts < cutoff) marketCache.delete(k);
+  }
+}
+
 // ---- Quote history store (JSON file) ----
 // NOTE: On ephemeral hosts (Render free tier, etc.) the filesystem resets on
 // redeploy/restart. Point QUOTES_FILE at a persistent disk, or swap for a DB,
@@ -128,6 +151,14 @@ app.get("/api/market", async (req, res) => {
     return res.json({ query: q, demo: true, ...demoMarket(q) });
   }
 
+  const key = q.toLowerCase();
+  const cached = marketCacheGet(key);
+
+  // Fresh cache hit — skip eBay entirely.
+  if (cached && Date.now() - cached.ts < MARKET_CACHE_TTL_MS) {
+    return res.json({ query: q, demo: false, ...cached.data, cached: true });
+  }
+
   try {
     const r = await ebay.search(q, { limit: 50, enrichCount: 0 });
     const priced = (r.items || []).filter((x) => x.price != null);
@@ -135,8 +166,15 @@ app.get("/api/market", async (req, res) => {
       ? Math.round((priced.reduce((a, b) => a + b.price, 0) / priced.length) * 100) / 100
       : null;
     const total = typeof r.total === "number" ? r.total : priced.length;
-    res.json({ query: q, demo: false, total, count: priced.length, avgPrice });
+    const data = { total, count: priced.length, avgPrice };
+    marketCacheSet(key, data);
+    res.json({ query: q, demo: false, ...data });
   } catch (e) {
+    // eBay errored (e.g. 429 rate limit). If we have any prior value, serve it
+    // stale rather than a blank — keeps the tab useful during rate-limit windows.
+    if (cached) {
+      return res.json({ query: q, demo: false, ...cached.data, cached: true, stale: true });
+    }
     // Never fail the whole tab because one model errored — report it as unknown.
     res.json({ query: q, demo: false, total: null, count: 0, avgPrice: null, error: e.message });
   }
