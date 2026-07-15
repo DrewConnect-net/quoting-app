@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Pricing Tool</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
+         background:#000; color:#f5f5f7; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:780px; margin:0 auto; padding:36px 22px; }
+  .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+  .signin { flex:none; text-align:right; font-size:12.5px; color:#a1a1a6; padding-top:4px; }
+  .signin input { width:150px; padding:8px 10px; border:1px solid #38383a; border-radius:10px; font-size:13px; background:#1c1c1e; color:#f5f5f7; }
+  .signin .who { color:#f5f5f7; font-weight:600; }
+  .linkbtn { background:none; border:0; color:#8e8e93; font-size:12.5px; cursor:pointer; text-decoration:underline; padding:0; }
+  .linkbtn:hover { color:#f5f5f7; }
+  .mini-btn { background:linear-gradient(180deg,#f5f5f7,#c7c7cc); color:#1d1d1f; border:0; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; margin-left:4px; }
+  h1 { font-size:24px; font-weight:600; letter-spacing:-0.02em; margin:0 0 4px;
+       background:linear-gradient(180deg,#fbfbfd,#a1a1a6); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .sub { color:#86868b; font-size:12.5px; margin:0 0 22px; }
+  .tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid #2c2c2e; }
+  .tab { background:none; border:0; border-bottom:2px solid transparent; padding:8px 14px; font-size:13.5px; font-weight:500; color:#86868b; cursor:pointer; margin-bottom:-1px; }
+  .tab:hover { color:#d1d1d6; }
+  .tab.active { color:#f5f5f7; border-bottom-color:#c7c7cc; }
+  .saverow { display:flex; align-items:center; gap:10px; margin-top:20px; }
+  .saved-msg { font-size:12.5px; color:#30d158; font-weight:600; }
+  .segtabs { display:flex; flex-wrap:nowrap; gap:2px; margin-top:16px; border-bottom:1px solid #2c2c2e; overflow-x:auto; }
+  .segtab { background:#161617; border:1px solid #2c2c2e; border-bottom:none; border-radius:8px 8px 0 0; padding:7px 16px; font-size:13px; font-weight:500; color:#a1a1a6; cursor:pointer; white-space:nowrap; position:relative; top:1px; }
+  .segtab:hover { color:#f5f5f7; }
+  .segtab.active { background:#1c1c1e; color:#f5f5f7; border-bottom:1px solid #1c1c1e; }
+  .searchbar { display:flex; gap:8px; }
+  .searchbar input { width:300px; max-width:100%; padding:9px 12px; border:1px solid #38383a; border-radius:10px; font-size:14px; background:#1c1c1e; color:#f5f5f7; }
+  .searchbar input::placeholder, .qtyinput::placeholder { color:#6e6e73; }
+  .searchbar input:focus, .qtyinput:focus { outline:none; border-color:#8e8e93; }
+  input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .btn { background:linear-gradient(180deg,#f5f5f7,#c7c7cc); color:#1d1d1f; border:0; border-radius:10px; padding:10px 20px; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn:hover { background:linear-gradient(180deg,#ffffff,#d1d1d6); }
+  .btn:active { transform:translateY(1px); }
+  .demo-banner { background:#161617; color:#a1a1a6; border:1px solid #2c2c2e; border-radius:10px; padding:8px 12px; font-size:12px; margin-top:14px; display:none; }
+  .rangebar { display:flex; align-items:baseline; justify-content:space-between; background:#1c1c1e; border:1px solid #2c2c2e; border-radius:14px; padding:12px 16px; margin-top:22px; }
+  .rangelab { font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#86868b; }
+  .rangeval { font-size:20px; font-weight:600; color:#f5f5f7; font-variant-numeric:tabular-nums; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px; }
+  @media (max-width:640px){ .cards { grid-template-columns:repeat(2,1fr); } }
+  .card { background:#1c1c1e; border:1px solid #2c2c2e; border-radius:14px; padding:14px 8px; text-align:center; }
+  .card .lab { font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:#86868b; }
+  .card .val { font-size:21px; font-weight:600; margin-top:4px; font-variant-numeric:tabular-nums; color:#f5f5f7; }
+  .card.low .val { color:#30d158; } .card.high .val { color:#ff9f0a; }
+  .card.avglo .val { color:#30d158; } .card.avggr .val { color:#ffd60a; }
+  .stratseg { display:inline-flex; gap:6px; }
+  .strat { border:1px solid #38383a; background:#1c1c1e; color:#a1a1a6; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+  .strat-cost.active { background:rgba(48,209,88,.15); color:#30d158; border-color:rgba(48,209,88,.55); }
+  .strat-grade.active { background:rgba(255,214,10,.15); color:#ffd60a; border-color:rgba(255,214,10,.55); }
+  .card .val small { font-size:13px; font-weight:500; color:#6e6e73; }
+  h2.sec { font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:#86868b; margin:22px 0 8px; }
+  table.gt, table.lt { width:100%; border-collapse:collapse; background:#1c1c1e; border:1px solid #2c2c2e; border-radius:14px; overflow:hidden; }
+  table.gt th, table.gt td, table.lt th, table.lt td { padding:10px 12px; font-size:13px; text-align:left; border-bottom:1px solid #2c2c2e; }
+  table.gt th, table.lt th { background:#161617; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:#86868b; font-weight:500; }
+  table.gt td.num, table.gt th.num, table.lt td.num, table.lt th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.gt td.ctr, table.gt th.ctr, table.lt td.ctr, table.lt th.ctr { text-align:center; }
+  table.gt tr:last-child td, table.lt tr:last-child td { border-bottom:0; }
+  .gname { font-weight:500; color:#f5f5f7; }
+  .grade-badge { display:inline-block; background:#2c2c2e; color:#e5e5ea; font-weight:600; padding:2px 8px; border-radius:999px; font-size:12px; }
+  .grade-none { color:#6e6e73; }
+  .buylink { display:inline-block; background:transparent; color:#f5f5f7; border:1px solid #48484a; font-weight:500; text-decoration:none; padding:4px 10px; border-radius:8px; font-size:12px; white-space:nowrap; }
+  .buylink:hover { background:#2c2c2e; }
+  .seller { color:#a1a1a6; }
+  .status { text-align:center; color:#6e6e73; font-size:13px; margin-top:24px; }
+  .err { text-align:center; color:#ff453a; font-size:13px; margin-top:16px; }
+  .foot { text-align:center; color:#6e6e73; font-size:11px; margin-top:24px; }
+  .viewhint { color:#86868b; font-size:12.5px; margin:0 0 12px; }
+  .qtyrow { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .qtylabel { font-size:13px; font-weight:500; color:#a1a1a6; white-space:nowrap; }
+  .qtyinput { width:90px; padding:9px 12px; border:1px solid #38383a; border-radius:10px; font-size:14px; background:#1c1c1e; color:#f5f5f7; }
+  .supplycheck { border-radius:12px; padding:12px 14px; font-size:14px; font-weight:600; margin-bottom:14px; }
+  .supplycheck small { display:block; font-weight:400; font-size:12px; margin-top:3px; opacity:.85; }
+  .sc-ok { background:rgba(48,209,88,.12); color:#30d158; border:1px solid rgba(48,209,88,.35); }
+  .sc-short { background:rgba(255,69,58,.12); color:#ff453a; border:1px solid rgba(255,69,58,.35); }
+  .panel { background:#1c1c1e; border:1px solid #2c2c2e; border-radius:0 0 14px 14px; border-top:none; padding:16px 16px 18px; }
+  .headline { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+  .headline .big { font-size:24px; font-weight:600; color:#f5f5f7; font-variant-numeric:tabular-nums; }
+  .headline .lab { font-size:12.5px; color:#86868b; }
+  .low-supply { color:#ff453a; font-weight:600; }
+  .btn.ghost { background:transparent; color:#f5f5f7; border:1px solid #48484a; }
+  .btn.ghost:hover { background:#2c2c2e; }
+  .hrow { cursor:pointer; }
+  .hrow:hover td { background:#232325; }
+  .po-row td { background:rgba(48,209,88,.13); }
+  .po-row:hover td { background:rgba(48,209,88,.20); }
+  .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:50; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; }
+  .modal.open { display:flex; }
+  .modal-card { background:#1c1c1e; border:1px solid #2c2c2e; border-radius:16px; width:100%; max-width:560px; padding:20px 22px; }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; font-size:16px; font-weight:600; color:#f5f5f7; margin-bottom:14px; }
+  .modal-x { background:none; border:0; color:#86868b; font-size:22px; line-height:1; cursor:pointer; }
+  .modal-x:hover { color:#f5f5f7; }
+  .modal-foot { display:flex; gap:8px; margin-top:16px; }
+  .qmeta { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; font-size:13px; margin-bottom:14px; }
+  .qmeta .k { color:#86868b; }
+  .qmeta .v { color:#f5f5f7; font-weight:500; text-align:right; }
+  .qtotal { display:flex; justify-content:space-between; border-top:2px solid #38383a; margin-top:8px; padding-top:10px; font-weight:600; font-size:15px; color:#f5f5f7; }
+  .qshort { color:#ff453a; font-size:12.5px; font-weight:600; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Sales Pricing Tool</h1>
+      <p class="sub">Search a product to see price range, average price, quantity, vendors, a grade breakdown, and live listing links to send to purchasing.</p>
+    </div>
+    <div class="signin" id="signinArea"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="search">1 · Search</button>
+    <button class="tab" data-view="market">2 · Market database</button>
+    <button class="tab" data-view="history">Quote history</button>
+  </div>
+
+  <div class="demo-banner" id="demoBanner"><b>Sample data</b> — the server isn't seeing valid eBay keys, so it's showing placeholders. Set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET on the host to go live.</div>
+
+  <div id="viewSearch">
+  <p class="viewhint">Look up live pricing on any product your customer asks about.</p>
+  <div class="searchbar">
+    <input id="q" type="text" placeholder="e.g. iPhone 12 64GB unlocked" autofocus>
+    <button class="btn" id="searchBtn">Search</button>
+  </div>
+  <div class="qtyrow">
+    <label for="need" class="qtylabel">Quantity</label>
+    <input id="need" class="qtyinput" type="number" min="1" step="1">
+  </div>
+
+  <div id="summary" style="display:none">
+    <div class="supplycheck" id="supplyCheck" style="display:none"></div>
+    <div class="saverow">
+      <label class="qtylabel" for="cust">Customer</label>
+      <input id="cust" type="text" placeholder="customer name" style="width:160px;padding:9px 12px;border:1px solid #38383a;border-radius:10px;font-size:14px;background:#1c1c1e;color:#f5f5f7;">
+      <label class="qtylabel">Fulfill by</label>
+      <div class="stratseg" id="stratSeg">
+        <button type="button" class="strat strat-cost active" data-strategy="cost">Lowest cost</button>
+        <button type="button" class="strat strat-grade" data-strategy="grade">Best grade</button>
+      </div>
+      <button class="btn" id="createBtn">Create quote</button>
+      <span class="saved-msg" id="savedMsg"></span>
+    </div>
+    <h2 class="sec">eBay costs to acquire (what you pay)</h2>
+    <div class="rangebar"><span class="rangelab">Cost range (low–high)</span><span class="rangeval" id="valRange">—</span></div>
+    <div class="cards">
+      <div class="card avglo"><div class="lab">Lowest avg cost · fulfill</div><div class="val" id="valAvgLow">—</div></div>
+      <div class="card avggr"><div class="lab">Best-grade cost · fulfill</div><div class="val" id="valAvgGrade">—</div></div>
+      <div class="card qty"><div class="lab">Quantity</div><div class="val" id="valQty">—</div></div>
+      <div class="card vend"><div class="lab">Vendors</div><div class="val" id="valVend">—</div></div>
+    </div>
+
+    <h2 class="sec">By condition / grade</h2>
+    <table class="gt">
+      <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Listings</th><th class="num">Price range</th><th class="num">Qty</th></tr></thead>
+      <tbody id="gradeBody"></tbody>
+    </table>
+
+    <h2 class="sec">Listings — send to purchasing</h2>
+    <table class="lt">
+      <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Price</th><th class="num">Qty</th><th>Seller</th><th>Link</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+  </div>
+
+  <div class="status" id="status">Enter a product above and hit Search.</div>
+  <div class="err" id="err"></div>
+  </div>
+
+  <div id="viewMarket" style="display:none">
+    <p class="viewhint">Live eBay market by product. Pick a category, scan quantity available and average price to judge secondary-market supply.</p>
+    <div class="segtabs" id="segTabs">
+      <button class="segtab active" data-seg="0">Samsung Phones</button>
+      <button class="segtab" data-seg="1">Samsung Tablets</button>
+      <button class="segtab" data-seg="2">Apple iPhone</button>
+      <button class="segtab" data-seg="3">Apple iPad</button>
+    </div>
+    <div class="panel">
+      <div class="headline"><span class="big" id="mktTotal">—</span><span class="lab" id="mktLab"></span></div>
+      <table class="lt">
+        <thead><tr><th>Product</th><th>Carrier</th><th class="num">GB</th><th class="num">Listings</th><th class="num">Avg price (live)</th></tr></thead>
+        <tbody id="mktBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="viewHistory" style="display:none">
+    <h2 class="sec">Quote history</h2>
+    <table class="lt">
+      <thead><tr><th>Quote #</th><th>Rep</th><th>Customer</th><th>Product</th><th class="num">Qty needed</th><th class="num">Stores</th><th class="num">Avg cost $/unit</th><th class="num">Total</th><th>Date quoted</th></tr></thead>
+      <tbody id="histBody"></tbody>
+    </table>
+    <div class="status" id="histStatus">No quotes saved yet.</div>
+  </div>
+
+  <div class="foot">Live pricing from eBay.</div>
+</div>
+
+<div class="modal" id="quoteModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <span id="qmTitle">Quote</span>
+      <button class="modal-x" id="qmClose" aria-label="Close">&times;</button>
+    </div>
+    <div id="qmBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="qmCopy">Quote</button>
+      <button class="btn" id="qmPO">Convert to PO</button>
+      <button class="btn ghost" id="qmClose2">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  function money(n){ return "$" + n.toFixed(2); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+  function toQty(v){
+    if (v == null) return 0;
+    if (typeof v === "number") return v;
+    var n = parseInt(String(v).replace(/[^0-9]/g, ""), 10);
+    return isFinite(n) ? n : 0;
+  }
+
+  // "For parts / not working" is excluded entirely from the tool.
+  var EXCLUDE_RE = /parts|not working/i;
+  function isExcluded(label){ return !!label && EXCLUDE_RE.test(String(label)); }
+
+  // Grade map: eBay condition label -> your internal code. Checked in order.
+  // 00 New · 10 Excellent / Open box · 29 everything else used/refurbished
+  // (Very Good, Good, Certified refurbished, Seller refurbished, Used/Pre-owned).
+  var GRADE_MAP = [
+    { test:/excellent/i, code:"10" },
+    { test:/open box/i, code:"10" },
+    { test:/^(brand\s+)?new\b/i, code:"00" },
+    { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
+  ];
+  function gradeCode(label){
+    if (!label || isExcluded(label)) return null;
+    var s = String(label).trim();
+    for (var i=0;i<GRADE_MAP.length;i++){ if (GRADE_MAP[i].test.test(s)) return GRADE_MAP[i].code; }
+    return null;
+  }
+  function gradeBadge(label){
+    var c = gradeCode(label);
+    return c ? '<span class="grade-badge">'+c+'</span>' : '<span class="grade-none">—</span>';
+  }
+  // Lower rank = better condition (00 New, 10 Open box, 20 Excellent, 29 rest). Unmapped = worst.
+  function gradeRank(label){ var c = gradeCode(label); return c != null ? parseInt(c, 10) : 999; }
+  // Take `need` units from listings in the given sort order; return the average unit cost.
+  function allocateUnits(items, need, cmp){
+    var pool = items.filter(function(i){ return i.price != null; }).slice().sort(cmp);
+    var units = 0, cost = 0, rem = need;
+    for (var i=0; i<pool.length && rem>0; i++){
+      var av = toQty(pool[i].quantity); if (av <= 0) av = 1;
+      var take = Math.min(rem, av);
+      units += take; cost += take * pool[i].price; rem -= take;
+    }
+    return { units:units, cost:cost, avg: units>0 ? cost/units : null };
+  }
+
+  var currentQuery = "";
+  var lastQuote = null;   // { product, avgPrice, quantity } captured from the last render
+  var lastResults = [];   // priced listings from the last search (for quote allocation)
+  var selectedStrategy = "cost";   // "cost" (green) or "grade" (yellow), chosen per quote
+
+  // Where "Convert to PO" emails go. In the deployed app this is a configurable setting.
+  var PURCHASING_EMAIL = "purchasing@yourcompany.com";
+
+  /* ---------- sign-in (name kept for the session, until the tool is closed) ---------- */
+  var SESSION_KEY = "salesRepName";
+  var currentUser = "";
+  try { currentUser = sessionStorage.getItem(SESSION_KEY) || ""; } catch(e){}
+  function renderSignin(){
+    var el = $("signinArea");
+    if (currentUser){
+      el.innerHTML = "Signed in as <span class='who'>" + escapeHtml(currentUser) + "</span><br><button class='linkbtn' id='signOut'>Sign out</button>";
+      $("signOut").addEventListener("click", function(){ currentUser=""; try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){} renderSignin(); });
+    } else {
+      el.innerHTML = "<input id='who' placeholder='Your name'><button class='mini-btn' id='signIn'>Sign in</button>";
+      var go = function(){ var n=$("who").value.trim(); if(!n) return; currentUser=n; try{ sessionStorage.setItem(SESSION_KEY,n); }catch(e){} renderSignin(); };
+      $("signIn").addEventListener("click", go);
+      $("who").addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
+    }
+  }
+
+  // Live eBay data comes from this app's own backend (server.js -> lib/ebay.js).
+  // The server returns { query, demo, results:[...], errors:[...] }. If no eBay
+  // keys are configured it returns demo:true with sample data.
+  function doSearch(){
+    var q = $("q").value.trim();
+    if(!q) return;
+    currentQuery = q;
+    $("savedMsg").textContent = "";
+    $("summary").style.display = "none";
+    $("err").textContent = "";
+    $("status").textContent = "Searching live eBay…";
+    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        $("demoBanner").style.display = data.demo ? "block" : "none";
+        render(data.results || []);
+        if (data.errors && data.errors.length){
+          $("err").textContent = data.errors.map(function(e){ return e.source + ": " + e.error; }).join(" · ");
+        }
+      })
+      .catch(function(e){ $("status").textContent=""; $("err").textContent = "Search failed: " + e.message; });
+  }
+
+  function render(items){
+    items = items.filter(function(i){ return !isExcluded(i.grade); });
+    var priced = items.filter(function(i){ return i.price != null; });
+    if (!priced.length){
+      $("summary").style.display = "none";
+      $("status").textContent = "No priced listings found for that search.";
+      return;
+    }
+    lastResults = priced;
+    var prices = priced.map(function(i){ return i.price; });
+    var low = Math.min.apply(null, prices);
+    var high = Math.max.apply(null, prices);
+    var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
+
+    var totalQty = items.reduce(function(s,i){ return s + toQty(i.quantity); }, 0);
+    var qtyKnown = items.some(function(i){ return i.quantity != null; });
+
+    var sellers = {}, haveSellers = false;
+    items.forEach(function(i){ if (i.seller){ sellers[i.seller]=1; haveSellers=true; } });
+    var vendors = haveSellers ? Object.keys(sellers).length : items.length;
+
+    // Two ways to average the cost to fulfill the order:
+    //  - lowest cost: cheapest units regardless of grade
+    //  - best grade: best-condition units first (grade 00→10→20→29), cheapest within a grade
+    var needN = parseInt($("need").value, 10);
+    var fulfill = (isFinite(needN) && needN > 0) ? needN : totalQty;
+    var loAvg = allocateUnits(priced, fulfill, function(a,b){ return a.price - b.price; }).avg;
+    var grAvg = allocateUnits(priced, fulfill, function(a,b){ return gradeRank(a.grade) - gradeRank(b.grade) || a.price - b.price; }).avg;
+
+    $("valRange").textContent = money(low) + " – " + money(high);
+    $("valAvgLow").textContent = loAvg != null ? money(loAvg) : "—";
+    $("valAvgGrade").textContent = grAvg != null ? money(grAvg) : "—";
+    $("valQty").innerHTML = qtyKnown ? totalQty : '—';
+    $("valVend").innerHTML = vendors + ' <small>' + (haveSellers ? 'sellers' : 'listings') + '</small>';
+
+    renderGrades(items);
+    renderListings(priced);
+
+    // Supply check: does the market cover how many the rep needs?
+    var need = parseInt($("need").value, 10);
+    var sc = $("supplyCheck");
+    if (isFinite(need) && need > 0 && qtyKnown){
+      var fulfillN = Math.min(need, totalQty);              // units we can actually source
+      var estLow = (loAvg != null) ? loAvg * fulfillN : null;   // cost using lowest-cost fulfillment
+      var estGrade = (grAvg != null) ? grAvg * fulfillN : null; // cost using best-grade fulfillment
+      var costLine = "<small>Est. cost to fulfill " + fulfillN + ": " +
+        (estLow != null ? money(estLow) : "—") + " lowest · " +
+        (estGrade != null ? money(estGrade) : "—") + " best grade</small>";
+      if (totalQty >= need){
+        sc.className = "supplycheck sc-ok";
+        sc.innerHTML = "Enough in the secondary market — need " + need + ", " + totalQty +
+          " available across " + vendors + " vendor(s)." + costLine;
+      } else {
+        sc.className = "supplycheck sc-short";
+        sc.innerHTML = "Short — need " + need + ", only " + totalQty + " available (" + (need - totalQty) +
+          " short). Consider recommending a new product." + costLine;
+      }
+      sc.style.display = "block";
+    } else {
+      sc.style.display = "none";
+    }
+
+    lastQuote = {
+      product: currentQuery,
+      avgPrice: Math.round(avg * 100) / 100,
+      quantity: qtyKnown ? totalQty : null,
+      needed: (isFinite(need) && need > 0) ? need : null,
+    };
+
+    $("status").textContent = "Based on " + priced.length + " eBay listing(s).";
+    $("summary").style.display = "block";
+  }
+
+  function renderGrades(items){
+    var groups = {};
+    items.forEach(function(i){
+      var g = (i.grade && String(i.grade).trim()) || "Unspecified";
+      if (!groups[g]) groups[g] = { count:0, prices:[], qty:0, qtyKnown:false };
+      var gr = groups[g];
+      gr.count++;
+      if (i.price != null) gr.prices.push(i.price);
+      if (i.quantity != null){ gr.qtyKnown=true; gr.qty += toQty(i.quantity); }
+    });
+    var names = Object.keys(groups).sort(function(a,b){
+      var pa = groups[a].prices.length ? Math.min.apply(null, groups[a].prices) : Infinity;
+      var pb = groups[b].prices.length ? Math.min.apply(null, groups[b].prices) : Infinity;
+      return pa - pb;
+    });
+    $("gradeBody").innerHTML = names.map(function(g){
+      var gr = groups[g], range = "—";
+      if (gr.prices.length){
+        var lo = Math.min.apply(null, gr.prices), hi = Math.max.apply(null, gr.prices);
+        range = lo===hi ? money(lo) : money(lo)+"–"+money(hi);
+      }
+      return "<tr><td class='gname'>"+escapeHtml(g)+"</td><td class='ctr'>"+gradeBadge(g)+
+        "</td><td class='num'>"+gr.count+"</td><td class='num'>"+range+
+        "</td><td class='num'>"+(gr.qtyKnown?gr.qty:"—")+"</td></tr>";
+    }).join("");
+  }
+
+  function renderListings(priced){
+    var rows = priced.slice().sort(function(a,b){ return a.price - b.price; });
+    $("listBody").innerHTML = rows.map(function(i){
+      var link = i.url
+        ? '<a class="buylink" href="'+escapeHtml(i.url)+'" target="_blank" rel="noopener">View on eBay</a>'
+        : '<span class="grade-none">—</span>';
+      var qty = i.quantity!=null ? escapeHtml(String(i.quantity)) : "—";
+      var seller = i.seller ? '<span class="seller">'+escapeHtml(i.seller)+'</span>' : "—";
+      return "<tr><td>"+escapeHtml(i.grade||"—")+"</td><td class='ctr'>"+gradeBadge(i.grade)+
+        "</td><td class='num'>"+money(i.price)+"</td><td class='num'>"+qty+
+        "</td><td>"+seller+"</td><td>"+link+"</td></tr>";
+    }).join("");
+  }
+
+  /* ---------- save quote + history (localStorage in this test build) ---------- */
+  var HKEY = "salesPricingQuotes_v1";
+  function readQuotes(){ try { return JSON.parse(localStorage.getItem(HKEY) || "[]"); } catch(e){ return []; } }
+  function writeQuotes(l){ try { localStorage.setItem(HKEY, JSON.stringify(l)); } catch(e){} }
+
+  // Allocate the needed quantity across the FEWEST eBay stores (streamline purchasing).
+  // Aggregate listings by seller, fill from the largest-stock stores first.
+  function allocate(items, need){
+    var byStore = {};
+    items.forEach(function(i){
+      if (!i.seller || i.price == null) return;
+      var q = toQty(i.quantity);
+      if (!byStore[i.seller]) byStore[i.seller] = { store:i.seller, avail:0, price:i.price };
+      byStore[i.seller].avail += q;
+      if (i.price < byStore[i.seller].price) byStore[i.seller].price = i.price; // best price at that store
+    });
+    var stores = Object.keys(byStore).map(function(k){ return byStore[k]; });
+    stores.sort(function(a,b){ return b.avail - a.avail || a.price - b.price; }); // fewest stores, then cheaper
+    var alloc = [], remaining = need, total = 0;
+    for (var i=0; i<stores.length && remaining>0; i++){
+      var take = Math.min(remaining, stores[i].avail);
+      if (take > 0){
+        var lineTotal = Math.round(take * stores[i].price * 100)/100;
+        alloc.push({ store:stores[i].store, qty:take, price:stores[i].price, lineTotal:lineTotal });
+        total += lineTotal; remaining -= take;
+      }
+    }
+    return { alloc:alloc, remaining:remaining, total:Math.round(total*100)/100 };
+  }
+
+  function strategyLabel(s){ return s === "grade" ? "Best grade" : "Lowest cost"; }
+
+  // Allocate `need` units by the chosen strategy, then group the picked listings by store.
+  function allocateBy(items, need, strategy){
+    var cmp = strategy === "grade"
+      ? function(a,b){ return gradeRank(a.grade) - gradeRank(b.grade) || a.price - b.price; }
+      : function(a,b){ return a.price - b.price; };
+    var pool = items.filter(function(i){ return i.price != null; }).slice().sort(cmp);
+    var byStore = {}, rem = need;
+    for (var i=0; i<pool.length && rem>0; i++){
+      var av = toQty(pool[i].quantity); if (av <= 0) av = 1;
+      var take = Math.min(rem, av);
+      var s = pool[i].seller || "—";
+      if (!byStore[s]) byStore[s] = { store:s, qty:0, cost:0 };
+      byStore[s].qty += take; byStore[s].cost += take * pool[i].price;
+      rem -= take;
+    }
+    var alloc = Object.keys(byStore).map(function(k){
+      var s = byStore[k];
+      return { store:s.store, qty:s.qty, price:Math.round((s.cost/s.qty)*100)/100, lineTotal:Math.round(s.cost*100)/100 };
+    }).sort(function(a,b){ return b.qty - a.qty; });
+    var total = Math.round(alloc.reduce(function(sum,x){ return sum + x.lineTotal; }, 0) * 100) / 100;
+    var fulfilled = need - rem;
+    return { alloc:alloc, remaining:rem, total:total, avg: fulfilled>0 ? Math.round((total/fulfilled)*100)/100 : null };
+  }
+
+  function createQuote(){
+    if (!lastQuote){ return; }
+    if (!currentUser){
+      $("savedMsg").textContent = "Enter your name (top right) to create a quote.";
+      $("savedMsg").style.color = "#ff453a";
+      if ($("who")) $("who").focus();
+      return;
+    }
+    $("savedMsg").style.color = "";
+    var need = lastQuote.needed;
+    if (!need || need < 1){ $("savedMsg").textContent = "Enter a Quantity first, then Create quote."; return; }
+    var strategy = selectedStrategy;
+    var a = allocateBy(lastResults, need, strategy);
+    var list = readQuotes();
+    var max = list.reduce(function(m,q){ var n=parseInt(String(q.quoteNumber||"").replace(/\D/g,""),10); return (isFinite(n)&&n>m)?n:m; }, 0);
+    var rec = {
+      quoteNumber: "Q-" + String(max+1).padStart(4,"0"),
+      rep: currentUser,
+      customer: ($("cust").value.trim() || null),
+      product: lastQuote.product,
+      needed: need,
+      strategy: strategy,
+      avgPrice: lastQuote.avgPrice,
+      avgCost: a.avg,
+      alloc: a.alloc,
+      stores: a.alloc.length,
+      total: a.total,
+      shortBy: a.remaining,
+      dateQuoted: new Date().toISOString()
+    };
+    list.push(rec); writeQuotes(list);
+    $("savedMsg").textContent = "Created " + rec.quoteNumber;
+    loadHistory();
+    showFormalQuote(rec);
+  }
+
+  function quoteText(rec){
+    var L = [];
+    L.push("QUOTE " + rec.quoteNumber);
+    L.push("Date: " + fmtDate(rec.dateQuoted));
+    L.push("Sales rep: " + (rec.rep || "—"));
+    L.push("Customer: " + (rec.customer || "—"));
+    L.push("Product: " + rec.product);
+    L.push("Fulfill strategy: " + strategyLabel(rec.strategy));
+    if (rec.avgCost != null) L.push("Avg cost $/unit: " + money(rec.avgCost));
+    L.push("Quantity needed: " + rec.needed);
+    L.push("Fulfilled from " + rec.stores + " eBay store(s):");
+    L.push("");
+    rec.alloc.forEach(function(r){
+      L.push("  " + r.store + " — " + r.qty + " @ " + money(r.price) + " = " + money(r.lineTotal));
+    });
+    L.push("");
+    L.push("Total: " + money(rec.total));
+    if (rec.shortBy > 0) L.push("SHORT by " + rec.shortBy + " unit(s) — consider a new product.");
+    return L.join("\n");
+  }
+
+  function poText(rec){
+    var L = [];
+    L.push("PURCHASE ORDER — from Quote " + rec.quoteNumber);
+    L.push("Requested by: " + (rec.rep || "—"));
+    L.push("Customer: " + (rec.customer || "—"));
+    L.push("Product: " + rec.product);
+    L.push("Quantity: " + rec.needed);
+    L.push("");
+    L.push("Fulfill strategy: " + strategyLabel(rec.strategy));
+    L.push("Purchase from " + rec.stores + " eBay store(s):");
+    rec.alloc.forEach(function(r){
+      L.push("  " + r.store + " — buy " + r.qty + " @ " + money(r.price) + " = " + money(r.lineTotal));
+    });
+    L.push("");
+    L.push("Purchase total: " + money(rec.total));
+    if (rec.shortBy > 0) L.push("NOTE: short " + rec.shortBy + " unit(s) — market can't fully cover this quantity.");
+    return L.join("\n");
+  }
+
+  function convertToPO(rec){
+    var subject = "PO " + rec.quoteNumber + " — " + rec.product;
+    var href = "mailto:" + encodeURIComponent(PURCHASING_EMAIL) +
+      "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(poText(rec));
+    window.location.href = href;   // opens the rep's email client, pre-filled — they press send
+    var list = readQuotes();
+    list.forEach(function(x){ if (x.quoteNumber === rec.quoteNumber) x.poSent = true; });
+    writeQuotes(list);
+    rec.poSent = true;
+    loadHistory();
+  }
+
+  function showFormalQuote(rec){
+    $("qmTitle").textContent = "Quote " + rec.quoteNumber;
+    var rows = rec.alloc.map(function(r){
+      return "<tr><td class='gname'>"+escapeHtml(r.store)+"</td>"+
+        "<td class='num'>"+r.qty+"</td>"+
+        "<td class='num'>"+money(r.price)+"</td>"+
+        "<td class='num'>"+money(r.lineTotal)+"</td></tr>";
+    }).join("");
+    $("qmBody").innerHTML =
+      "<div class='qmeta'>"+
+        "<span class='k'>Sales rep</span><span class='v'>"+escapeHtml(rec.rep||"—")+"</span>"+
+        "<span class='k'>Customer</span><span class='v'>"+escapeHtml(rec.customer||"—")+"</span>"+
+        "<span class='k'>Product</span><span class='v'>"+escapeHtml(rec.product)+"</span>"+
+        "<span class='k'>Quantity needed</span><span class='v'>"+rec.needed+"</span>"+
+        "<span class='k'>Fulfill strategy</span><span class='v'>"+strategyLabel(rec.strategy)+"</span>"+
+        "<span class='k'>Avg cost $/unit</span><span class='v'>"+(rec.avgCost!=null?money(rec.avgCost):"—")+"</span>"+
+        "<span class='k'>Fulfilled from</span><span class='v'>"+rec.stores+" store(s)</span>"+
+        "<span class='k'>Date</span><span class='v'>"+escapeHtml(fmtDate(rec.dateQuoted))+"</span>"+
+      "</div>"+
+      "<table class='lt'><thead><tr><th>eBay store</th><th class='num'>Qty</th><th class='num'>Unit price</th><th class='num'>Line total</th></tr></thead><tbody>"+rows+"</tbody></table>"+
+      "<div class='qtotal'><span>Total</span><span>"+money(rec.total)+"</span></div>"+
+      (rec.shortBy>0 ? "<div class='qshort'>Short by "+rec.shortBy+" unit(s) — market can't fully cover this quantity. Consider a new product.</div>" : "");
+    $("qmCopy").onclick = function(){ navigator.clipboard.writeText(quoteText(rec)).then(function(){ $("qmCopy").textContent="Copied ✓"; setTimeout(function(){ $("qmCopy").textContent="Quote"; },1500); }); };
+    $("qmPO").textContent = rec.poSent ? "Re-send PO" : "Convert to PO";
+    $("qmPO").onclick = function(){ convertToPO(rec); $("qmPO").textContent = "PO emailed to purchasing ✓"; };
+    $("quoteModal").classList.add("open");
+  }
+  function closeModal(){ $("quoteModal").classList.remove("open"); }
+
+  function fmtDate(iso){
+    var d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleString(undefined, { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+  }
+
+  function loadHistory(){
+    var list = readQuotes().slice().reverse();
+    if (!list.length){ $("histBody").innerHTML = ""; $("histStatus").textContent = "No quotes saved yet."; return; }
+    $("histStatus").textContent = list.length + " quote(s) saved. Click a row to view the formal quote.";
+    $("histBody").innerHTML = list.map(function(q, idx){
+      return "<tr class='hrow" + (q.poSent ? " po-row" : "") + "' data-qn='" + escapeHtml(q.quoteNumber) + "'><td class='gname'>" + escapeHtml(q.quoteNumber) + (q.poSent ? " <span class='grade-badge'>PO</span>" : "") + "</td>" +
+        "<td>" + escapeHtml(q.rep || "—") + "</td>" +
+        "<td>" + escapeHtml(q.customer || "—") + "</td>" +
+        "<td>" + escapeHtml(q.product) + "</td>" +
+        "<td class='num'>" + (q.needed!=null ? escapeHtml(String(q.needed)) : "—") + "</td>" +
+        "<td class='num'>" + (q.stores!=null ? escapeHtml(String(q.stores)) : "—") + "</td>" +
+        "<td class='num'>" + (q.avgCost!=null ? money(q.avgCost) : (q.avgPrice!=null ? money(q.avgPrice) : "—")) + "</td>" +
+        "<td class='num'>" + (q.total!=null ? money(q.total) : "—") + "</td>" +
+        "<td>" + escapeHtml(fmtDate(q.dateQuoted)) + "</td></tr>";
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".hrow"), function(row){
+      row.addEventListener("click", function(){
+        var qn = row.getAttribute("data-qn");
+        var rec = readQuotes().filter(function(x){ return x.quoteNumber === qn; })[0];
+        if (rec && rec.alloc) showFormalQuote(rec);
+      });
+    });
+  }
+
+  /* ---------- built-in sample data (mirrors real eBay listing shapes) ---------- */
+  function demoHash(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+  function demoSearch(q){
+    var base = 120 + (demoHash(q) % 380);
+    var sellers = ["techdeals_us","renewedtech","mobilehub","phonesplus","bestgadgets","cellfeee","gadgetgurus"];
+    var carriers = ["Unlocked","AT&T","Verizon","T-Mobile"];
+    var rows = [
+      { grade:"New", mult:1.35, qty:2 },
+      { grade:"Open Box", mult:1.15, qty:3 },
+      { grade:"Excellent - Refurbished", mult:1.02, qty:6 },
+      { grade:"Very Good - Refurbished", mult:0.94, qty:8 },
+      { grade:"Good - Refurbished", mult:0.86, qty:7 },
+      { grade:"Certified - Refurbished", mult:0.9, qty:4 },
+      { grade:"Used", mult:0.8, qty:9 },
+      { grade:"Pre-Owned", mult:0.78, qty:5 },
+      { grade:"For parts or not working", mult:0.4, qty:3 }
+    ];
+    return rows.map(function(r, i){
+      return {
+        source:"ebay",
+        title: q + " " + carriers[i % carriers.length] + " (" + r.grade + ")",
+        price: Math.round(base * r.mult * 100) / 100,
+        currency:"USD",
+        grade: r.grade,
+        quantity: r.qty,
+        seller: sellers[i % sellers.length],
+        url: "https://www.ebay.com/sch/i.html?_nkw=" + encodeURIComponent(q)
+      };
+    });
+  }
+
+  /* ---------- FUNCTION 2: live market database (sample catalog) ---------- */
+  var MARKET = [
+    { name:"Samsung Phones", total:"59,000+", rows:[
+      ["Galaxy S25 Ultra","Unlocked","512",210,720],
+      ["Galaxy S24 Ultra","Unlocked","512",480,567],
+      ["Galaxy S24 Ultra","AT&T","256",95,520],
+      ["Galaxy S23","Unlocked","128",610,300],
+      ["Galaxy S22","Unlocked","128",1200,155],
+      ["Galaxy S22","Verizon","128",340,140],
+      ["Galaxy S21","Unlocked","128",1500,130],
+      ["Galaxy S21","T-Mobile","128",420,120],
+      ["Galaxy Z Flip5","Unlocked","512",180,240],
+      ["Galaxy A54 5G","Unlocked","128",260,145],
+      ["Galaxy A15 5G","Unlocked","128",300,123]
+    ]},
+    { name:"Samsung Tablets", total:"22,000+", rows:[
+      ["Galaxy Tab S11","Wi-Fi","512",40,750],
+      ["Galaxy Tab S10 FE","Wi-Fi","128",120,300],
+      ["Galaxy Tab S8+","Wi-Fi","128",210,200],
+      ["Galaxy Tab S7","Wi-Fi","256",330,132],
+      ["Galaxy Tab A11","Wi-Fi","64",480,130],
+      ["Galaxy Tab A9+","Wi-Fi","64",520,88],
+      ["Galaxy Tab A8","Wi-Fi","64",610,90]
+    ]},
+    { name:"Apple iPhone", total:"93,000+", rows:[
+      ["iPhone 17","Unlocked","256",90,775],
+      ["iPhone 16 Pro","Unlocked","128",260,565],
+      ["iPhone 16","Unlocked","128",340,549],
+      ["iPhone 15","Unlocked","128",720,384],
+      ["iPhone 14","Unlocked","128",1400,260],
+      ["iPhone 14","AT&T","128",380,240],
+      ["iPhone 13","Unlocked","128",1900,255],
+      ["iPhone 13","Verizon","128",520,240],
+      ["iPhone 12","Unlocked","64",2600,160],
+      ["iPhone 12","T-Mobile","128",610,175],
+      ["iPhone 11","Unlocked","64",3100,105]
+    ]},
+    { name:"Apple iPad", total:"48,000+", rows:[
+      ["iPad 11th Gen","Wi-Fi","128",120,399],
+      ["iPad 10th Gen","Wi-Fi","256",260,370],
+      ["iPad 9th Gen","Wi-Fi","64",900,159],
+      ["iPad Air 5th","Wi-Fi","64",210,245],
+      ["iPad Air 4th","Wi-Fi","64",340,170],
+      ["iPad Pro 10.5\"","Wi-Fi","64",280,105]
+    ]}
+  ];
+  var LOW_SUPPLY = 10;
+  var marketToken = 0;   // guards against overlapping segment loads
+
+  // Live market database: for each product in the segment, run a real /api/search
+  // and fill in the live average price + a sampled live listing count.
+  function renderMarket(idx){
+    var seg = MARKET[idx];
+    $("mktTotal").textContent = "…";
+    $("mktLab").textContent = "loading live eBay averages for " + seg.name.toLowerCase() + "…";
+    $("mktBody").innerHTML = seg.rows.map(function(r, i){
+      return "<tr data-row='"+i+"'><td class='gname'>"+escapeHtml(r[0])+"</td>"+
+        "<td>"+escapeHtml(r[1])+"</td>"+
+        "<td class='num'>"+escapeHtml(r[2])+"GB</td>"+
+        "<td class='num' data-qty>…</td>"+
+        "<td class='num' data-avg>…</td></tr>";
+    }).join("");
+
+    var token = ++marketToken, done = 0, totalFound = 0;
+    seg.rows.forEach(function(r, i){
+      var q = [r[0], r[1], r[2] + "GB"].join(" ");
+      fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if (token !== marketToken) return;
+          var row = document.querySelector("#mktBody tr[data-row='" + i + "']");
+          if (!row) return;
+          var items = (data.results || []).filter(function(x){ return x.price != null && !isExcluded(x.grade); });
+          var qEl = row.querySelector("[data-qty]"), aEl = row.querySelector("[data-avg]");
+          if (items.length){
+            var prices = items.map(function(x){ return x.price; });
+            var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
+            qEl.textContent = items.length.toLocaleString();
+            qEl.className = "num" + (items.length < LOW_SUPPLY ? " low-supply" : "");
+            aEl.textContent = money(avg);
+            totalFound += items.length;
+          } else {
+            qEl.textContent = "0"; aEl.textContent = "—";
+          }
+        })
+        .catch(function(){
+          if (token !== marketToken) return;
+          var row = document.querySelector("#mktBody tr[data-row='" + i + "']");
+          if (row){ row.querySelector("[data-qty]").textContent = "—"; row.querySelector("[data-avg]").textContent = "—"; }
+        })
+        .then(function(){
+          if (token !== marketToken) return;
+          if (++done === seg.rows.length){
+            $("mktTotal").textContent = totalFound.toLocaleString() + "+";
+            $("mktLab").textContent = "live eBay averages in " + seg.name.toLowerCase() + " · price per model is live; count is a sampled signal (≤50/model)";
+          }
+        });
+    });
+  }
+
+  function switchView(view){
+    $("viewSearch").style.display  = view === "search"  ? "block" : "none";
+    $("viewMarket").style.display  = view === "market"  ? "block" : "none";
+    $("viewHistory").style.display = view === "history" ? "block" : "none";
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+      t.classList.toggle("active", t.getAttribute("data-view") === view);
+    });
+    if (view === "history") loadHistory();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+    t.addEventListener("click", function(){ switchView(t.getAttribute("data-view")); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".strat"), function(b){
+    b.addEventListener("click", function(){
+      selectedStrategy = b.getAttribute("data-strategy");
+      Array.prototype.forEach.call(document.querySelectorAll(".strat"), function(x){ x.classList.remove("active"); });
+      b.classList.add("active");
+    });
+  });
+  $("createBtn").addEventListener("click", createQuote);
+  $("qmClose").addEventListener("click", closeModal);
+  $("qmClose2").addEventListener("click", closeModal);
+  $("quoteModal").addEventListener("click", function(e){ if (e.target === $("quoteModal")) closeModal(); });
+  $("searchBtn").addEventListener("click", doSearch);
+  $("q").addEventListener("keydown", function(e){ if(e.key === "Enter") doSearch(); });
+  $("need").addEventListener("keydown", function(e){ if(e.key === "Enter") doSearch(); });
+  $("need").addEventListener("input", function(){ if(currentQuery){ doSearch(); } });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(st){
+    st.addEventListener("click", function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".segtab"), function(x){ x.classList.remove("active"); });
+      st.classList.add("active");
+      renderMarket(parseInt(st.getAttribute("data-seg"),10));
+    });
+  });
+
+  renderSignin();
+  renderMarket(0);
+  loadHistory();
+})();
+</script>
+</body>
+</html>
