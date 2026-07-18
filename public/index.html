@@ -79,6 +79,9 @@
   .supplycheck small { display:block; font-weight:400; font-size:12px; margin-top:3px; opacity:.85; }
   .sc-ok { background:rgba(48,209,88,.12); color:#30d158; border:1px solid rgba(48,209,88,.35); }
   .sc-short { background:rgba(255,69,58,.12); color:#ff453a; border:1px solid rgba(255,69,58,.35); }
+  #notFound { margin-top:10px; }
+  .nf-head { background:rgba(255,159,10,.12); color:#ff9f0a; border:1px solid rgba(255,159,10,.35); border-radius:12px; padding:14px 16px; font-size:15px; font-weight:700; }
+  .nf-sub { color:#98989d; font-size:13px; margin-top:8px; }
   .panel { background:#1c1c1e; border:1px solid #2c2c2e; border-radius:0 0 14px 14px; border-top:none; padding:16px 16px 18px; }
   .headline { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
   .headline .big { font-size:24px; font-weight:600; color:#f5f5f7; font-variant-numeric:tabular-nums; }
@@ -171,6 +174,18 @@
       <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Price</th><th class="num">Qty</th><th>Seller</th><th>Link</th></tr></thead>
       <tbody id="listBody"></tbody>
     </table>
+  </div>
+
+  <div id="notFound" style="display:none">
+    <div class="nf-head" id="nfHead"></div>
+    <div class="nf-sub" id="nfSub"></div>
+    <div id="altWrap" style="display:none">
+      <h2 class="sec">Closest available models</h2>
+      <table class="lt">
+        <thead><tr><th>Listing (closest match eBay has)</th><th class="num">Listings</th><th class="num">Price range</th><th>Link</th></tr></thead>
+        <tbody id="altBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="status" id="status">Enter a product above and hit Search.</div>
@@ -308,18 +323,62 @@
     currentQuery = q;
     $("savedMsg").textContent = "";
     $("summary").style.display = "none";
+    $("notFound").style.display = "none";
     $("err").textContent = "";
     $("status").textContent = "Searching live eBay…";
     fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
       .then(function(r){ return r.json(); })
       .then(function(data){
         $("demoBanner").style.display = data.demo ? "block" : "none";
-        render(data.results || []);
+        var results = data.results || [];
+        // Model search that returned no exact match: tell the rep plainly and
+        // show the closest models eBay actually has, instead of fake numbers.
+        if (!data.demo && data.isModelQuery && !results.length){
+          renderNotFound(data.query, data.alternatives || []);
+        } else {
+          render(results);
+        }
         if (data.errors && data.errors.length){
           $("err").textContent = data.errors.map(function(e){ return e.source + ": " + e.error; }).join(" · ");
         }
       })
       .catch(function(e){ $("status").textContent=""; $("err").textContent = "Search failed: " + e.message; });
+  }
+
+  function renderNotFound(query, alternatives){
+    $("summary").style.display = "none";
+    lastResults = [];
+    lastQuote = null;
+    $("nfHead").textContent = "No current eBay listings for “" + query + "”.";
+    $("nfSub").textContent = "That exact model isn’t showing in the live secondary market right now, so there’s no accurate price to quote. " +
+      (alternatives.length ? "The closest models eBay does have are below." : "No closely related models are listed either.");
+    var body = $("altBody");
+    body.innerHTML = "";
+    if (alternatives.length){
+      alternatives.forEach(function(a){
+        var range = (a.priceLow != null)
+          ? (a.priceLow === a.priceHigh ? money(a.priceLow) : money(a.priceLow) + " – " + money(a.priceHigh))
+          : "—";
+        var link = a.url ? "<a href='" + a.url + "' target='_blank' rel='noopener'>View on eBay</a>" : "—";
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + escapeHtml(a.title) + "</td>" +
+          "<td class='num'>" + a.count + "</td>" +
+          "<td class='num'>" + range + "</td>" +
+          "<td>" + link + "</td>";
+        body.appendChild(tr);
+      });
+      $("altWrap").style.display = "block";
+    } else {
+      $("altWrap").style.display = "none";
+    }
+    $("status").textContent = "0 exact matches for that model.";
+    $("notFound").style.display = "block";
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
   }
 
   function render(items){
