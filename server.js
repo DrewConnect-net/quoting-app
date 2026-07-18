@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import * as ebay from "./lib/ebay.js";
 import * as amazon from "./lib/amazon.js";
 import * as backmarket from "./lib/backmarket.js";
+import { filterByModel } from "./lib/match.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -135,7 +136,23 @@ app.get("/api/search", async (req, res) => {
   });
 
   results.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-  res.json({ query: q, demo: false, results, errors });
+
+  // Model-aware relevance pass. eBay's fuzzy search returns near-misses when the
+  // exact model isn't listed; keep only listings that actually match the model
+  // the rep typed. When a specific model was asked for and nothing matches,
+  // return an empty result set plus the closest available models so the UI can
+  // say "no current eBay listings for that model" instead of inventing a price.
+  const rel = filterByModel(q, results);
+  res.json({
+    query: q,
+    demo: false,
+    results: rel.matched,
+    isModelQuery: rel.isModelQuery,
+    matchedCount: rel.matched.length,
+    rawCount: results.length,
+    alternatives: rel.alternatives,
+    errors,
+  });
 });
 
 // GET /api/market?q=...  Lightweight lookup for the "Market database" tab.
