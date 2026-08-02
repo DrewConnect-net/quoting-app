@@ -257,24 +257,42 @@
     return isFinite(n) ? n : 0;
   }
 
-  // "For parts / not working" is excluded entirely from the tool.
+  // Conditions dropped entirely from the tool (never priced, quoted, or shown):
+  //  - "For parts / not working": never quotable.
+  //  - Grade 29 (used / refurbished tiers): retired 2026-08 — see DROPPED_GRADES.
   var EXCLUDE_RE = /parts|not working/i;
-  function isExcluded(label){ return !!label && EXCLUDE_RE.test(String(label)); }
 
   // Grade map: eBay condition label -> your internal code. Checked in order.
-  // 00 New · 10 Excellent / Open box · 29 everything else used/refurbished
-  // (Very Good, Good, Certified refurbished, Seller refurbished, Used/Pre-owned).
+  // 00 New · 10 Excellent / Open box.
+  // The used/refurbished family (Very Good, Good, Certified/Seller refurbished,
+  // Used/Pre-owned) still classifies as 29 so ordering is preserved, but 29 is
+  // listed in DROPPED_GRADES below, so those devices are removed from the tool.
   var GRADE_MAP = [
     { test:/excellent/i, code:"10" },
     { test:/open box/i, code:"10" },
     { test:/^(brand\s+)?new\b/i, code:"00" },
     { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
   ];
-  function gradeCode(label){
-    if (!label || isExcluded(label)) return null;
+  // Grades retired from the catalog. Any listing that classifies to one of these
+  // is excluded everywhere (cost range, averages, quantity, vendors, listings, quotes).
+  var DROPPED_GRADES = { "29": true };
+
+  // Raw classification incl. dropped tiers (preserves the check order above).
+  function classify(label){
+    if (!label) return null;
     var s = String(label).trim();
     for (var i=0;i<GRADE_MAP.length;i++){ if (GRADE_MAP[i].test.test(s)) return GRADE_MAP[i].code; }
     return null;
+  }
+  function isExcluded(label){
+    if (!label) return false;
+    if (EXCLUDE_RE.test(String(label))) return true;
+    return DROPPED_GRADES[classify(label)] === true;
+  }
+  // Only kept grades get a code/badge; dropped or unmapped -> null.
+  function gradeCode(label){
+    if (isExcluded(label)) return null;
+    return classify(label);
   }
   function gradeBadge(label){
     var c = gradeCode(label);
