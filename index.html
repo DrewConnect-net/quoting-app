@@ -133,6 +133,8 @@
     <input id="need" class="qtyinput" type="number" min="1" step="1">
   </div>
 
+  <div class="carrier-warn" id="carrierWarn" style="display:none;margin:10px 0;padding:10px 12px;border:1px solid #7a5b00;background:#2a2100;color:#ffd479;border-radius:10px;font-size:13px;line-height:1.4;"></div>
+
   <div id="summary" style="display:none">
     <div class="supplycheck" id="supplyCheck" style="display:none"></div>
     <div class="saverow">
@@ -229,42 +231,24 @@
     return isFinite(n) ? n : 0;
   }
 
-  // Conditions dropped entirely from the tool (never priced, quoted, or shown):
-  //  - "For parts / not working": never quotable.
-  //  - Grade 29 (used / refurbished tiers): retired 2026-08 — see DROPPED_GRADES.
+  // "For parts / not working" is excluded entirely from the tool.
   var EXCLUDE_RE = /parts|not working/i;
+  function isExcluded(label){ return !!label && EXCLUDE_RE.test(String(label)); }
 
   // Grade map: eBay condition label -> your internal code. Checked in order.
-  // 00 New · 10 Excellent / Open box.
-  // The used/refurbished family (Very Good, Good, Certified/Seller refurbished,
-  // Used/Pre-owned) still classifies as 29 so ordering is preserved, but 29 is
-  // listed in DROPPED_GRADES below, so those devices are removed from the tool.
+  // 00 New · 10 Excellent / Open box · 29 everything else used/refurbished
+  // (Very Good, Good, Certified refurbished, Seller refurbished, Used/Pre-owned).
   var GRADE_MAP = [
     { test:/excellent/i, code:"10" },
     { test:/open box/i, code:"10" },
     { test:/^(brand\s+)?new\b/i, code:"00" },
     { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
   ];
-  // Grades retired from the catalog. Any listing that classifies to one of these
-  // is excluded everywhere (cost range, averages, quantity, vendors, listings, quotes).
-  var DROPPED_GRADES = { "29": true };
-
-  // Raw classification incl. dropped tiers (preserves the check order above).
-  function classify(label){
-    if (!label) return null;
+  function gradeCode(label){
+    if (!label || isExcluded(label)) return null;
     var s = String(label).trim();
     for (var i=0;i<GRADE_MAP.length;i++){ if (GRADE_MAP[i].test.test(s)) return GRADE_MAP[i].code; }
     return null;
-  }
-  function isExcluded(label){
-    if (!label) return false;
-    if (EXCLUDE_RE.test(String(label))) return true;
-    return DROPPED_GRADES[classify(label)] === true;
-  }
-  // Only kept grades get a code/badge; dropped or unmapped -> null.
-  function gradeCode(label){
-    if (isExcluded(label)) return null;
-    return classify(label);
   }
   function gradeBadge(label){
     var c = gradeCode(label);
@@ -312,6 +296,16 @@
   // Live eBay data comes from this app's own backend (server.js -> lib/ebay.js).
   // The server returns { query, demo, results:[...], errors:[...] }. If no eBay
   // keys are configured it returns demo:true with sample data.
+  // Samsung/Galaxy carrier guard. For Samsung the carrier is decisive: the same
+  // model ships as a carrier-locked variant ("...U") and an unlocked variant
+  // ("...U1") that are priced very differently, so a quote is only meaningful
+  // once the carrier is known. We therefore WARN (but still search) when a
+  // Samsung/Galaxy query names no carrier. "Unlocked" alone does NOT count.
+  var SAMSUNG_RE = /\b(samsung|galaxy)\b/i;
+  var CARRIER_RE = /\b(at\s*&\s*t|at&t|att|verizon|vzw|t[-\s]?mobile|tmo|sprint|cricket|boost|metro(?:pcs)?|us\s*cellular|uscellular|straight\s*talk|tracfone|simple\s*mobile|mint(?:\s*mobile)?|visible|xfinity|consumer\s*cellular|google\s*fi|spectrum|ultra\s*mobile|total\s*wireless)\b/i;
+  // True when the query is a Samsung/Galaxy search that names no carrier.
+  function needsCarrier(q){ return SAMSUNG_RE.test(q) && !CARRIER_RE.test(q); }
+
   function doSearch(){
     var q = $("q").value.trim();
     if(!q) return;
@@ -319,6 +313,18 @@
     $("savedMsg").textContent = "";
     $("summary").style.display = "none";
     $("err").textContent = "";
+    // Samsung/Galaxy carrier reminder (warn-but-allow). Reset every search.
+    var cw = $("carrierWarn");
+    if (cw){
+      if (needsCarrier(q)){
+        cw.innerHTML = "<b>Add a carrier.</b> Samsung / Galaxy searches should name a carrier " +
+          "(AT&amp;T, T-Mobile, Verizon, Sprint, …). Carrier vs. unlocked moves the price a lot — " +
+          "e.g. a carrier &ldquo;…U&rdquo; model vs an unlocked &ldquo;…U1&rdquo;. Showing results anyway.";
+        cw.style.display = "block";
+      } else {
+        cw.style.display = "none";
+      }
+    }
     $("status").textContent = "Searching live eBay…";
     fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
       .then(function(r){ return r.json(); })
