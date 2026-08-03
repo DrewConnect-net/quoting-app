@@ -178,11 +178,25 @@ app.get("/api/market", async (req, res) => {
 
   try {
     const r = await ebay.search(q, { limit: 50, enrichCount: 0 });
-    const priced = (r.items || []).filter((x) => x.price != null);
+    const all = r.items || [];
+    // Scope to the EXACT model queried. eBay's q= is fuzzy and ignores "+", so a
+    // search for "Galaxy S25" also returns S25+, S25 Ultra, S25 FE, etc. — and a
+    // search for "Galaxy S25+" returns the very same set. Without this filter the
+    // Market tab shows identical listings/price for a base model and its variants.
+    // filterByModel keeps only the listings that match this exact model.
+    const matched = filterByModel(q, all).matched;
+    const priced = matched.filter((x) => x.price != null);
     const avgPrice = priced.length
       ? Math.round((priced.reduce((a, b) => a + b.price, 0) / priced.length) * 100) / 100
       : null;
-    const total = typeof r.total === "number" ? r.total : priced.length;
+    // eBay's data.total counts the whole fuzzy result (every variant lumped in).
+    // Scale it by this model's share of the fetched sample to estimate the active
+    // listing count for THIS model alone. No exact matches -> 0 (UI shows "none
+    // listed"), which is the correct signal for a model that isn't in the market.
+    const fuzzyTotal = typeof r.total === "number" ? r.total : all.length;
+    const total = all.length
+      ? Math.round(fuzzyTotal * (matched.length / all.length))
+      : matched.length;
     const data = { total, count: priced.length, avgPrice };
     marketCacheSet(key, data);
     res.json({ query: q, demo: false, ...data });
