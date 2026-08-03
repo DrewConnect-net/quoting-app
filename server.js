@@ -203,6 +203,7 @@ app.get("/api/market", async (req, res) => {
     let matchedModelValues = 0;
     let source = "model-aspect-filtered";
     let fallbackUsed = false;
+    let unknown = false; // eBay has no structured per-model count for this model
 
     if (matchedValues.length) {
       // For each matching eBay Model value, get the SELLABLE count via an
@@ -220,21 +221,39 @@ app.get("/api/market", async (req, res) => {
       // via aspect_filter (already sellable-filtered) to confirm a real count.
       try {
         const fb = await ebay.aspectFilterCount(q, { categoryId });
-        if (fb.total > 0) {
+        // GUARD: if eBay doesn't recognize the Model value, it silently IGNORES the
+        // aspect_filter and returns the plain keyword total — not a real per-model
+        // count, and (because eBay drops "+") identical for "+/non-+" siblings
+        // (e.g. Tab A9 vs Tab A9+, Tab S9 FE vs FE+). eBay simply has no structured
+        // Model data for those. Detect it by comparing to the unfiltered fuzzy total
+        // (r.ebayTotal): if the "filtered" count is ~the same, the filter did nothing
+        // and we can't produce a trustworthy exact count -> leave it unknown ("—").
+        const fuzzy = r.ebayTotal;
+        const filterIgnored = fuzzy != null && fb.total > 0 && fb.total >= 0.95 * fuzzy;
+        if (fb.total > 0 && !filterIgnored) {
           total = fb.total;
           matchedModelValues = 1;
           fallbackUsed = true;
+        } else if (filterIgnored) {
+          unknown = true;
         }
       } catch { /* keep total = 0 if the fallback also comes up empty */ }
     }
 
-    // Report null (UI shows "—") only when we have neither a distribution nor a
-    // confirmed count. With a distribution present, a genuine 0 means the model
-    // has no sellable listings right now and is shown as 0.
-    const haveCount = haveDist || total > 0;
+    // "—" (null) when eBay can't give a trustworthy exact count: either no Model
+    // distribution at all, or the fallback's filter was ignored (no structured data).
+    // With a real distribution present, a genuine 0 means "no sellable listings now".
+    const haveCount = !unknown && (haveDist || total > 0);
     const data = haveCount
       ? { total, count: priced.length, avgPrice, matchedModelValues, source, fallbackUsed }
-      : { total: null, count: null, avgPrice, matchedModelValues: 0, source, reason: "no-model-aspect" };
+      : {
+          total: null,
+          count: null,
+          avgPrice,
+          matchedModelValues: 0,
+          source,
+          reason: unknown ? "no-structured-model-data" : "no-model-aspect",
+        };
     marketCacheSet(key, data);
     res.json({ query: q, demo: false, ...data });
   } catch (e) {
