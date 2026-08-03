@@ -204,6 +204,7 @@ app.get("/api/market", async (req, res) => {
     let source = "model-aspect-filtered";
     let fallbackUsed = false;
     let unknown = false; // eBay has no structured per-model count for this model
+    let approxKeyword = false; // count came from the keyword-search total (approx)
 
     if (matchedValues.length) {
       // For each matching eBay Model value, get the SELLABLE count via an
@@ -238,9 +239,20 @@ app.get("/api/market", async (req, res) => {
           total = Math.max(...honored);
           matchedModelValues = 1;
           fallbackUsed = true;
+        } else if (!/\+/.test(q) && typeof fuzzy === "number" && fuzzy > 0) {
+          // No structured Model value (eBay's Model tag is coarse — it lumps every
+          // iPad Pro generation under a generic "iPad Pro", etc.). But eBay's
+          // KEYWORD search DOES separate them — "iPad Pro 12.9 5th gen" vs "6th
+          // gen" return different totals, and FE vs non-FE differ — so use the
+          // keyword-search total (already Buy-It-Now + no-for-parts filtered) as an
+          // APPROXIMATE count. The UI labels the column "~approx", so this is
+          // consistent. EXCEPTION: a "+" model can't be told apart from its base
+          // this way because eBay drops the "+", so those stay "—".
+          total = fuzzy;
+          approxKeyword = true;
         } else {
-          // No spelling produced a constrained count -> eBay has no structured
-          // per-model data for this model. Report it as unknown ("—").
+          // A "+" variant with no structured data (can't distinguish from base),
+          // or no keyword total at all -> unknown ("—").
           unknown = true;
         }
       } catch { /* keep total = 0 if the fallback also comes up empty */ }
@@ -251,7 +263,7 @@ app.get("/api/market", async (req, res) => {
     // With a real distribution present, a genuine 0 means "no sellable listings now".
     const haveCount = !unknown && (haveDist || total > 0);
     const data = haveCount
-      ? { total, count: priced.length, avgPrice, matchedModelValues, source, fallbackUsed }
+      ? { total, count: priced.length, avgPrice, matchedModelValues, source, fallbackUsed, approxKeyword }
       : {
           total: null,
           count: null,
