@@ -12,7 +12,7 @@
   .wrap { max-width:780px; margin:0 auto; padding:36px 22px; }
   .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
   .signin { flex:none; text-align:right; font-size:12.5px; color:#a1a1a6; padding-top:4px; }
-  .signin input { width:150px; padding:8px 10px; border:1px solid #38383a; border-radius:10px; font-size:13px; background:#1c1c1e; color:#f5f5f7; }
+  .signin input { width:220px; padding:8px 10px; border:1px solid #38383a; border-radius:10px; font-size:13px; background:#1c1c1e; color:#f5f5f7; }
   .signin .who { color:#f5f5f7; font-weight:600; }
   .linkbtn { background:none; border:0; color:#8e8e93; font-size:12.5px; cursor:pointer; text-decoration:underline; padding:0; }
   .linkbtn:hover { color:#f5f5f7; }
@@ -341,8 +341,8 @@
   // Where "Convert to PO" emails go. In the deployed app this is a configurable setting.
   var PURCHASING_EMAIL = "Purchasing@connectuscorp.com";
 
-  /* ---------- sign-in (name kept for the session, until the tool is closed) ---------- */
-  var SESSION_KEY = "salesRepName";
+  /* ---------- sign-in (rep EMAIL kept for the session, until the tool is closed) ---------- */
+  var SESSION_KEY = "salesRepEmail";
   var currentUser = "";
   try { currentUser = sessionStorage.getItem(SESSION_KEY) || ""; } catch(e){}
   function renderSignin(){
@@ -351,8 +351,15 @@
       el.innerHTML = "Signed in as <span class='who'>" + escapeHtml(currentUser) + "</span><br><button class='linkbtn' id='signOut'>Sign out</button>";
       $("signOut").addEventListener("click", function(){ currentUser=""; try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){} renderSignin(); });
     } else {
-      el.innerHTML = "<input id='who' placeholder='Your name'><button class='mini-btn' id='signIn'>Sign in</button>";
-      var go = function(){ var n=$("who").value.trim(); if(!n) return; currentUser=n; try{ sessionStorage.setItem(SESSION_KEY,n); }catch(e){} renderSignin(); };
+      el.innerHTML = "<input id='who' type='email' placeholder='Your work email' autocomplete='email'>" +
+        "<button class='mini-btn' id='signIn'>Sign in</button>" +
+        "<div id='signinErr' style='color:#ff453a;font-size:11px;margin-top:4px;display:none'>Enter a valid email address.</div>";
+      var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      var go = function(){
+        var n=$("who").value.trim();
+        if(!EMAIL_RE.test(n)){ $("signinErr").style.display="block"; $("who").focus(); return; }
+        currentUser=n; try{ sessionStorage.setItem(SESSION_KEY,n); }catch(e){} renderSignin();
+      };
       $("signIn").addEventListener("click", go);
       $("who").addEventListener("keydown", function(e){ if(e.key==="Enter") go(); });
     }
@@ -366,8 +373,8 @@
     if (btn){ btn.disabled = locked; btn.style.opacity = locked ? ".45" : ""; btn.style.cursor = locked ? "not-allowed" : ""; }
     if (q){ q.disabled = locked; q.placeholder = locked ? "Sign in to search…" : "e.g. iPhone 12 64GB unlocked"; }
     if (st){
-      if (locked) st.textContent = "Sign in with your name (top right) to run a search.";
-      else if (st.textContent.indexOf("Sign in with your name") === 0) st.textContent = "Enter a product above and hit Search.";
+      if (locked) st.textContent = "Sign in with your email (top right) to run a search.";
+      else if (st.textContent.indexOf("Sign in with your email") === 0) st.textContent = "Enter a product above and hit Search.";
     }
   }
 
@@ -386,7 +393,7 @@
 
   function doSearch(){
     if (!currentUser){
-      $("status").textContent = "Please sign in with your name (top right) before searching.";
+      $("status").textContent = "Please sign in with your email (top right) before searching.";
       var who0 = $("who"); if (who0) who0.focus();
       return;
     }
@@ -670,7 +677,7 @@
   function createQuote(){
     if (!lastQuote){ return; }
     if (!currentUser){
-      $("savedMsg").textContent = "Enter your name (top right) to create a quote.";
+      $("savedMsg").textContent = "Sign in with your email (top right) to create a quote.";
       $("savedMsg").style.color = "#ff453a";
       if ($("who")) $("who").focus();
       return;
