@@ -200,7 +200,7 @@
   </div>
 
   <div id="viewMarket" style="display:none">
-    <p class="viewhint">Every mainstream model, checked live against eBay. <b>Live listings</b> is eBay's active-listing count right now; a model with none in the market shows <b>0</b>. Pick a category below.</p>
+    <p class="viewhint">Every mainstream model, checked live against eBay. <b>Avg price</b> is the reliable figure — sampled from real Buy-It-Now listings (parts, accessories and damaged units excluded). <b>Live listings</b> is an <b>approximate</b> supply signal from eBay's own model tags, which are inconsistent for some variants (base vs "+") and tablet generations, so treat it as a rough count. Pick a category below.</p>
     <div class="segtabs" id="segTabs">
       <button class="segtab active" data-seg="0">Samsung Phones</button>
       <button class="segtab" data-seg="1">Samsung Tablets</button>
@@ -213,7 +213,7 @@
         <input id="mktFilter" type="text" placeholder="Filter models in this category… (e.g. iPhone 11, S24, Tab S9)">
       </div>
       <table class="lt">
-        <thead><tr><th>Product</th><th class="num">Live listings</th><th class="num">Avg price (live)</th><th class="ctr">Status</th></tr></thead>
+        <thead><tr><th>Product</th><th class="num">Live listings (approx.)</th><th class="num">Avg price (live)</th><th class="ctr">Status</th></tr></thead>
         <tbody id="mktBody"></tbody>
       </table>
     </div>
@@ -892,7 +892,7 @@
         aEl.textContent = "—";
         sEl.innerHTML = "<span class='nostock'>0 · none listed</span>";
       } else {
-        qEl.textContent = total.toLocaleString();
+        qEl.textContent = "~" + total.toLocaleString();
         qEl.className = "num" + (total < LOW_SUPPLY ? " low-supply" : "");
         aEl.textContent = (v.avgPrice != null) ? money(v.avgPrice) : "—";
         sEl.innerHTML = (total < LOW_SUPPLY)
@@ -915,7 +915,7 @@
               done++;
               if (done === models.length){
                 $("mktTotal").textContent = inStock + "/" + models.length;
-                $("mktLab").textContent = "models with live eBay listings · count is eBay's active-listing total · 0 = not in the market right now";
+                $("mktLab").textContent = "models with live eBay listings · listing count is approximate (eBay model tags) · avg price is sampled from real listings · — = eBay has no reliable count";
               } else {
                 pump();
               }
