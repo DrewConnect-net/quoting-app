@@ -745,9 +745,14 @@
 
   function convertToPO(rec){
     var subject = "PO " + rec.quoteNumber + " — " + rec.product;
-    var href = "mailto:" + encodeURIComponent(PURCHASING_EMAIL) +
-      "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(poText(rec));
-    window.location.href = href;   // opens the rep's email client, pre-filled — they press send
+    // Google Workspace shop: open a pre-filled Gmail compose window in a new tab
+    // (recipient, subject, and body all filled) so the rep just reviews and hits
+    // Send — instead of launching the OS default mail client.
+    var gmail = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+      "&to=" + encodeURIComponent(PURCHASING_EMAIL) +
+      "&su=" + encodeURIComponent(subject) +
+      "&body=" + encodeURIComponent(poText(rec));
+    window.open(gmail, "_blank", "noopener");
     var list = readQuotes();
     list.forEach(function(x){ if (x.quoteNumber === rec.quoteNumber) x.poSent = true; });
     writeQuotes(list);
