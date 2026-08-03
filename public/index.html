@@ -69,6 +69,11 @@
   table.gt tr:last-child td, table.lt tr:last-child td { border-bottom:0; }
   .gname { font-weight:500; color:#f5f5f7; }
   .grade-badge { display:inline-block; background:#2c2c2e; color:#e5e5ea; font-weight:600; padding:2px 8px; border-radius:999px; font-size:12px; }
+  ul.gradekey { list-style:none; margin:0 0 8px; padding:0; }
+  ul.gradekey li { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid #2c2c2e; font-size:13px; color:#c7c7cc; line-height:1.5; }
+  ul.gradekey li:last-child { border-bottom:none; }
+  ul.gradekey li .grade-badge { flex:none; margin-top:1px; }
+  ul.gradekey li b { color:#f5f5f7; }
   .grade-none { color:#6e6e73; }
   .buylink { display:inline-block; background:transparent; color:#f5f5f7; border:1px solid #48484a; font-weight:500; text-decoration:none; padding:4px 10px; border-radius:8px; font-size:12px; white-space:nowrap; }
   .buylink:hover { background:#2c2c2e; }
@@ -169,6 +174,13 @@
       <div class="card qty"><div class="lab">Quantity</div><div class="val" id="valQty">—</div></div>
       <div class="card vend"><div class="lab">Vendors</div><div class="val" id="valVend">—</div></div>
     </div>
+
+    <h2 class="sec">Grade key</h2>
+    <ul class="gradekey">
+      <li><span class="grade-badge">00</span><div><b>New</b> — New in original box only: sealed or open box.</div></li>
+      <li><span class="grade-badge">10</span><div><b>Excellent — "Like New"</b> — Very clean; very light blemishes you'd have to hold under the light to see. No visible scratches from 6 inches away. No dents, no dings. No wear on the camera area. <b>80% battery health minimum.</b></div></li>
+      <li><span class="grade-badge">20</span><div><b>Very Good</b> — Slight blemishes / scratches, no cracks or dents. Light wear &amp; tear. 1–2 visible scratches from 6 inches away. No dents, no dings. No wear on the camera area. <b>80% battery health minimum.</b></div></li>
+    </ul>
 
     <h2 class="sec">By condition / grade</h2>
     <table class="gt">
@@ -273,19 +285,24 @@
 
   // Conditions dropped entirely from the tool (never priced, quoted, or shown):
   //  - "For parts / not working": never quotable.
-  //  - Grade 29 (used / refurbished tiers): retired 2026-08 — see DROPPED_GRADES.
+  //  - Anything that doesn't meet grades 00/10/20 (generic Used, Good, lower
+  //    refurb) classifies to 29, which is dropped — see DROPPED_GRADES.
   var EXCLUDE_RE = /parts|not working/i;
 
-  // Grade map: eBay condition label -> your internal code. Checked in order.
-  // 00 New · 10 Excellent / Open box.
-  // The used/refurbished family (Very Good, Good, Certified/Seller refurbished,
-  // Used/Pre-owned) still classifies as 29 so ordering is preserved, but 29 is
-  // listed in DROPPED_GRADES below, so those devices are removed from the tool.
+  // Grade map: eBay condition label -> internal code. Checked in order. Only THREE
+  // grades exist:
+  //   00 — New (sealed) OR Open Box
+  //   10 — Excellent / "Like New"
+  //   20 — Very Good
+  // "Very Good" is checked before the generic "good" so it lands in 20, not 29.
+  // Everything that falls through (generic Used, Good, certified/seller refurb,
+  // pre-owned) classifies to 29 and is removed from the tool via DROPPED_GRADES.
   var GRADE_MAP = [
-    { test:/excellent/i, code:"10" },
-    { test:/open box/i, code:"10" },
+    { test:/very good/i, code:"20" },
+    { test:/excellent|like new/i, code:"10" },
+    { test:/open box/i, code:"00" },
     { test:/^(brand\s+)?new\b/i, code:"00" },
-    { test:/very good|good|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
+    { test:/\bgood\b|certified|seller refurb|refurbished|used|pre[- ]?owned/i, code:"29" }
   ];
   // Grades retired from the catalog. Any listing that classifies to one of these
   // is excluded everywhere (cost range, averages, quantity, vendors, listings, quotes).
@@ -312,7 +329,7 @@
     var c = gradeCode(label);
     return c ? '<span class="grade-badge">'+c+'</span>' : '<span class="grade-none">—</span>';
   }
-  // Lower rank = better condition (00 New, 10 Open box, 20 Excellent, 29 rest). Unmapped = worst.
+  // Lower rank = better condition (00 New/Open box, 10 Excellent, 20 Very Good). Dropped/unmapped = worst.
   function gradeRank(label){ var c = gradeCode(label); return c != null ? parseInt(c, 10) : 999; }
   // Take `need` units from listings in the given sort order; return the average unit cost.
   function allocateUnits(items, need, cmp){
