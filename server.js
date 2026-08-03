@@ -187,15 +187,10 @@ app.get("/api/market", async (req, res) => {
     // S25 / S25+ / S25 Ultra together, but its per-model aspect distribution keeps
     // them separate — so "Galaxy S25" sums only the base-S25 value(s), "Galaxy
     // S25+" sums only the Plus value(s), and so on. No pagination, no estimate.
+    // Identify eBay's own Model aspect value(s) that match the EXACT model queried.
+    // (We use these value strings to get filter-sensitive counts below.)
     const parsed = parseQuery(q);
-    let total = 0;
-    let matchedModelValues = 0;
-    for (const mv of r.modelValues) {
-      if (titleMatches(parsed, mv.value)) {
-        total += mv.matchCount;
-        matchedModelValues++;
-      }
-    }
+    const matchedValues = r.modelValues.filter((mv) => titleMatches(parsed, mv.value));
 
     // Live average price from the sampled page, restricted to exact-model listings.
     const priced = filterByModel(q, r.items).matched.filter((x) => x.price != null);
@@ -204,30 +199,38 @@ app.get("/api/market", async (req, res) => {
       : null;
 
     const haveDist = r.hasModelAspect && r.modelValues.length > 0;
-    let source = "model-aspect";
+    let total = 0;
+    let matchedModelValues = 0;
+    let source = "model-aspect-filtered";
     let fallbackUsed = false;
 
-    // Zero-count fallback. A 0 here means the model wasn't in eBay's Model-aspect
-    // list — either it's genuinely not listed, or (for a low-volume variant) eBay
-    // truncated it out of the distribution. Confirm with ONE targeted
-    // aspect_filter lookup on the exact Model value; if eBay returns a real count,
-    // use it. This only fires when total is 0, so mainstream models stay at a
-    // single call.
-    if (total === 0) {
+    if (matchedValues.length) {
+      // For each matching eBay Model value, get the SELLABLE count via an
+      // aspect_filter result total (the refinement matchCount ignores the
+      // sellable filter, so we can't use it). Distinct Model values don't overlap,
+      // so summing is correct. One extra eBay call per matched value (usually 1).
+      for (const mv of matchedValues) {
+        const t = await ebay.aspectFilterTotal(q, { categoryId, modelValue: mv.value });
+        // Fall back to the (unfiltered) refinement count only if the call failed.
+        total += typeof t === "number" ? t : mv.matchCount;
+        matchedModelValues++;
+      }
+    } else {
+      // Model absent from eBay's (truncated) distribution. Try candidate spellings
+      // via aspect_filter (already sellable-filtered) to confirm a real count.
       try {
         const fb = await ebay.aspectFilterCount(q, { categoryId });
         if (fb.total > 0) {
           total = fb.total;
           matchedModelValues = 1;
-          source = "model-aspect+filter";
           fallbackUsed = true;
         }
       } catch { /* keep total = 0 if the fallback also comes up empty */ }
     }
 
     // Report null (UI shows "—") only when we have neither a distribution nor a
-    // confirmed fallback count. With a distribution present, a genuine 0 means the
-    // model isn't currently listed and is shown as 0.
+    // confirmed count. With a distribution present, a genuine 0 means the model
+    // has no sellable listings right now and is shown as 0.
     const haveCount = haveDist || total > 0;
     const data = haveCount
       ? { total, count: priced.length, avgPrice, matchedModelValues, source, fallbackUsed }
