@@ -221,20 +221,26 @@ app.get("/api/market", async (req, res) => {
       // via aspect_filter (already sellable-filtered) to confirm a real count.
       try {
         const fb = await ebay.aspectFilterCount(q, { categoryId });
-        // GUARD: if eBay doesn't recognize the Model value, it silently IGNORES the
+        // If eBay doesn't recognize a Model value it silently IGNORES the
         // aspect_filter and returns the plain keyword total — not a real per-model
         // count, and (because eBay drops "+") identical for "+/non-+" siblings
-        // (e.g. Tab A9 vs Tab A9+, Tab S9 FE vs FE+). eBay simply has no structured
-        // Model data for those. Detect it by comparing to the unfiltered fuzzy total
-        // (r.ebayTotal): if the "filtered" count is ~the same, the filter did nothing
-        // and we can't produce a trustworthy exact count -> leave it unknown ("—").
+        // (Tab A9 vs A9+, Tab S9 FE vs FE+, and new models like S25 FE that eBay
+        // hasn't catalogued yet). A candidate spelling is only a REAL constrained
+        // count when it comes back meaningfully BELOW the unfiltered keyword total
+        // (r.ebayTotal); an ignored one comes back ~equal to it. Evaluate each
+        // candidate independently and keep the largest that is genuinely
+        // constrained — never the blunt max, which would pick an ignored total.
         const fuzzy = r.ebayTotal;
-        const filterIgnored = fuzzy != null && fb.total > 0 && fb.total >= 0.95 * fuzzy;
-        if (fb.total > 0 && !filterIgnored) {
-          total = fb.total;
+        const honored = (fb.tried || [])
+          .map((c) => c.total)
+          .filter((t) => typeof t === "number" && t > 0 && fuzzy != null && t < 0.95 * fuzzy);
+        if (honored.length) {
+          total = Math.max(...honored);
           matchedModelValues = 1;
           fallbackUsed = true;
-        } else if (filterIgnored) {
+        } else {
+          // No spelling produced a constrained count -> eBay has no structured
+          // per-model data for this model. Report it as unknown ("—").
           unknown = true;
         }
       } catch { /* keep total = 0 if the fallback also comes up empty */ }
