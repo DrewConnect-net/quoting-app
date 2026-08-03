@@ -277,10 +277,12 @@
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
   function toQty(v){
-    if (v == null) return 0;
+    // Unknown/undisclosed quantity counts as 1: eBay omits a stock count for
+    // single-unit resale listings, so each such listing = one available device.
+    if (v == null) return 1;
     if (typeof v === "number") return v;
     var n = parseInt(String(v).replace(/[^0-9]/g, ""), 10);
-    return isFinite(n) ? n : 0;
+    return isFinite(n) ? n : 1;
   }
 
   // Conditions dropped entirely from the tool (never priced, quoted, or shown):
@@ -505,7 +507,8 @@
     var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
 
     var totalQty = items.reduce(function(s,i){ return s + toQty(i.quantity); }, 0);
-    var qtyKnown = items.some(function(i){ return i.quantity != null; });
+    // Every listing contributes at least 1 (unknown eBay qty = 1 unit).
+    var qtyKnown = totalQty > 0;
 
     var sellers = {}, haveSellers = false;
     items.forEach(function(i){ if (i.seller){ sellers[i.seller]=1; haveSellers=true; } });
@@ -587,7 +590,7 @@
       var gr = groups[g];
       gr.count++;
       if (i.price != null) gr.prices.push(i.price);
-      if (i.quantity != null){ gr.qtyKnown=true; gr.qty += toQty(i.quantity); }
+      gr.qtyKnown = true; gr.qty += toQty(i.quantity); // unknown eBay qty = 1 unit
     });
     var names = Object.keys(groups).sort(function(a,b){
       var pa = groups[a].prices.length ? Math.min.apply(null, groups[a].prices) : Infinity;
@@ -612,7 +615,7 @@
       var link = i.url
         ? '<a class="buylink" href="'+escapeHtml(i.url)+'" target="_blank" rel="noopener">View on eBay</a>'
         : '<span class="grade-none">—</span>';
-      var qty = i.quantity!=null ? escapeHtml(String(i.quantity)) : "—";
+      var qty = escapeHtml(String(toQty(i.quantity))); // unknown eBay qty shown as 1
       var seller = i.seller ? '<span class="seller">'+escapeHtml(i.seller)+'</span>' : "—";
       return "<tr><td>"+escapeHtml(i.grade||"—")+"</td><td class='ctr'>"+gradeBadge(i.grade)+
         "</td><td class='num'>"+money(i.price)+"</td><td class='num'>"+qty+
