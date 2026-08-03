@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import * as ebay from "./lib/ebay.js";
 import * as amazon from "./lib/amazon.js";
 import * as backmarket from "./lib/backmarket.js";
-import { filterByModel } from "./lib/match.js";
+import { filterByModel, parseQuery, titleMatches } from "./lib/match.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -177,27 +177,40 @@ app.get("/api/market", async (req, res) => {
   }
 
   try {
-    const r = await ebay.search(q, { limit: 50, enrichCount: 0 });
-    const all = r.items || [];
-    // Scope to the EXACT model queried. eBay's q= is fuzzy and ignores "+", so a
-    // search for "Galaxy S25" also returns S25+, S25 Ultra, S25 FE, etc. — and a
-    // search for "Galaxy S25+" returns the very same set. Without this filter the
-    // Market tab shows identical listings/price for a base model and its variants.
-    // filterByModel keeps only the listings that match this exact model.
-    const matched = filterByModel(q, all).matched;
-    const priced = matched.filter((x) => x.price != null);
+    // Aspects are category-specific, so tell eBay which category to break down.
+    // The Market catalog is phones + tablets; infer from the model name.
+    const categoryId = /\bipad\b|\btab\b/i.test(q) ? "171485" : "9355";
+    const r = await ebay.marketAspectCount(q, { categoryId });
+
+    // TRUE exact-model count: sum eBay's own Model-aspect matchCounts for every
+    // model value that matches the exact model queried. eBay's fuzzy search lumps
+    // S25 / S25+ / S25 Ultra together, but its per-model aspect distribution keeps
+    // them separate — so "Galaxy S25" sums only the base-S25 value(s), "Galaxy
+    // S25+" sums only the Plus value(s), and so on. No pagination, no estimate.
+    const parsed = parseQuery(q);
+    let total = 0;
+    let matchedModelValues = 0;
+    for (const mv of r.modelValues) {
+      if (titleMatches(parsed, mv.value)) {
+        total += mv.matchCount;
+        matchedModelValues++;
+      }
+    }
+
+    // Live average price from the sampled page, restricted to exact-model listings.
+    const priced = filterByModel(q, r.items).matched.filter((x) => x.price != null);
     const avgPrice = priced.length
       ? Math.round((priced.reduce((a, b) => a + b.price, 0) / priced.length) * 100) / 100
       : null;
-    // eBay's data.total counts the whole fuzzy result (every variant lumped in).
-    // Scale it by this model's share of the fetched sample to estimate the active
-    // listing count for THIS model alone. No exact matches -> 0 (UI shows "none
-    // listed"), which is the correct signal for a model that isn't in the market.
-    const fuzzyTotal = typeof r.total === "number" ? r.total : all.length;
-    const total = all.length
-      ? Math.round(fuzzyTotal * (matched.length / all.length))
-      : matched.length;
-    const data = { total, count: priced.length, avgPrice };
+
+    // If eBay returned no Model-aspect distribution for this query, we can't
+    // produce a trustworthy exact count — report null (UI shows "—") instead of a
+    // misleading 0. When we DO have the distribution, a 0 sum legitimately means
+    // this exact model isn't currently listed.
+    const haveCount = r.hasModelAspect && r.modelValues.length > 0;
+    const data = haveCount
+      ? { total, count: priced.length, avgPrice, matchedModelValues, source: "model-aspect" }
+      : { total: null, count: null, avgPrice, matchedModelValues: 0, source: "model-aspect", reason: "no-model-aspect" };
     marketCacheSet(key, data);
     res.json({ query: q, demo: false, ...data });
   } catch (e) {
