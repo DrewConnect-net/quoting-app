@@ -181,6 +181,18 @@
       <thead><tr><th>eBay condition</th><th class="ctr">Grade</th><th class="num">Price</th><th class="num">Qty</th><th>Seller</th><th>Link</th></tr></thead>
       <tbody id="listBody"></tbody>
     </table>
+
+    <div id="wholesaleSection" style="display:none">
+      <h2 class="sec">Wholesale — Cellular Professor (your cost)</h2>
+      <div class="cards">
+        <div class="card avglo"><div class="lab">Avg wholesale cost</div><div class="val" id="valWhAvg">—</div></div>
+        <div class="card qty"><div class="lab">SKUs in stock</div><div class="val" id="valWhCount">—</div></div>
+      </div>
+      <table class="lt">
+        <thead><tr><th>Product</th><th class="ctr">Grade</th><th class="num">Wholesale cost</th><th class="num">Stock</th></tr></thead>
+        <tbody id="whBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <div id="notFound" style="display:none">
@@ -391,7 +403,7 @@
       }
     }
     $("status").textContent = "Searching live eBay…";
-    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay&limit=50")
+    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay,cellularprofessor&limit=50")
       .then(function(r){ return r.json(); })
       .then(function(data){
         $("demoBanner").style.display = data.demo ? "block" : "none";
@@ -446,12 +458,27 @@
     });
   }
 
-  function render(items){
-    items = items.filter(function(i){ return !isExcluded(i.grade); });
+  function render(allItems){
+    // Split WHOLESALE (Cellular Professor cost) from MARKET (eBay resale). The
+    // market math below must ONLY ever see eBay items, or the avg price and quote
+    // get corrupted by wholesale cost prices.
+    var wholesale = (allItems || []).filter(function(i){ return i.wholesale; });
+    var items = (allItems || []).filter(function(i){ return !i.wholesale && !isExcluded(i.grade); });
+    renderWholesale(wholesale);
+
     var priced = items.filter(function(i){ return i.price != null; });
     if (!priced.length){
-      $("summary").style.display = "none";
-      $("status").textContent = "No priced listings found for that search.";
+      if (wholesale.length){
+        // No eBay market data, but we have wholesale stock — show wholesale only.
+        $("valRange").textContent = "—"; $("valAvgLow").textContent = "—";
+        $("valAvgGrade").textContent = "—"; $("valQty").innerHTML = "—"; $("valVend").innerHTML = "—";
+        $("gradeBody").innerHTML = ""; $("listBody").innerHTML = "";
+        $("status").textContent = "No eBay market listings for that model — showing wholesale cost only.";
+        $("summary").style.display = "block";
+      } else {
+        $("summary").style.display = "none";
+        $("status").textContent = "No priced listings found for that search.";
+      }
       return;
     }
     lastResults = priced;
@@ -517,6 +544,22 @@
 
     $("status").textContent = "Based on " + priced.length + " eBay listing(s).";
     $("summary").style.display = "block";
+  }
+
+  function renderWholesale(list){
+    var sec = $("wholesaleSection");
+    if (!sec) return;
+    var priced = (list || []).filter(function(i){ return i.price != null; });
+    if (!priced.length){ sec.style.display = "none"; return; }
+    var prices = priced.map(function(i){ return i.price; });
+    var avg = prices.reduce(function(a,b){ return a+b; }, 0) / prices.length;
+    $("valWhAvg").textContent = money(avg);
+    $("valWhCount").textContent = list.length;
+    $("whBody").innerHTML = list.slice(0, 80).map(function(i){
+      return "<tr><td class='gname'>"+escapeHtml(i.title||"")+"</td><td class='ctr'>"+escapeHtml(i.grade||"—")+
+        "</td><td class='num'>"+(i.price!=null?money(i.price):"—")+"</td><td class='num'>"+(i.quantity!=null?i.quantity:"—")+"</td></tr>";
+    }).join("");
+    sec.style.display = "block";
   }
 
   function renderGrades(items){
