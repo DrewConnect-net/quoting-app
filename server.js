@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import * as ebay from "./lib/ebay.js";
 import * as amazon from "./lib/amazon.js";
 import * as backmarket from "./lib/backmarket.js";
+import * as cellularprofessor from "./lib/cellularprofessor.js";
 import { filterByModel, parseQuery, titleMatches } from "./lib/match.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
-const SOURCES = { ebay, amazon, backmarket };
+const SOURCES = { ebay, amazon, backmarket, cellularprofessor };
 
 // ---- Market lookup cache ----
 // The "Market database" tab checks ~40 models per tab (117 across all tabs). Each
@@ -106,7 +107,7 @@ app.get("/api/search", async (req, res) => {
   if (!q) return res.status(400).json({ error: "Missing query param 'q'." });
 
   const limit = Math.min(parseInt(req.query.limit, 10) || 10, 20);
-  const requested = (req.query.sources || "ebay,amazon,backmarket")
+  const requested = (req.query.sources || "ebay,amazon,backmarket,cellularprofessor")
     .toString()
     .split(",")
     .map((s) => s.trim())
