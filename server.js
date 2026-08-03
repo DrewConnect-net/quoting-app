@@ -203,14 +203,35 @@ app.get("/api/market", async (req, res) => {
       ? Math.round((priced.reduce((a, b) => a + b.price, 0) / priced.length) * 100) / 100
       : null;
 
-    // If eBay returned no Model-aspect distribution for this query, we can't
-    // produce a trustworthy exact count — report null (UI shows "—") instead of a
-    // misleading 0. When we DO have the distribution, a 0 sum legitimately means
-    // this exact model isn't currently listed.
-    const haveCount = r.hasModelAspect && r.modelValues.length > 0;
+    const haveDist = r.hasModelAspect && r.modelValues.length > 0;
+    let source = "model-aspect";
+    let fallbackUsed = false;
+
+    // Zero-count fallback. A 0 here means the model wasn't in eBay's Model-aspect
+    // list — either it's genuinely not listed, or (for a low-volume variant) eBay
+    // truncated it out of the distribution. Confirm with ONE targeted
+    // aspect_filter lookup on the exact Model value; if eBay returns a real count,
+    // use it. This only fires when total is 0, so mainstream models stay at a
+    // single call.
+    if (total === 0) {
+      try {
+        const fb = await ebay.aspectFilterCount(q, { categoryId });
+        if (fb.total > 0) {
+          total = fb.total;
+          matchedModelValues = 1;
+          source = "model-aspect+filter";
+          fallbackUsed = true;
+        }
+      } catch { /* keep total = 0 if the fallback also comes up empty */ }
+    }
+
+    // Report null (UI shows "—") only when we have neither a distribution nor a
+    // confirmed fallback count. With a distribution present, a genuine 0 means the
+    // model isn't currently listed and is shown as 0.
+    const haveCount = haveDist || total > 0;
     const data = haveCount
-      ? { total, count: priced.length, avgPrice, matchedModelValues, source: "model-aspect" }
-      : { total: null, count: null, avgPrice, matchedModelValues: 0, source: "model-aspect", reason: "no-model-aspect" };
+      ? { total, count: priced.length, avgPrice, matchedModelValues, source, fallbackUsed }
+      : { total: null, count: null, avgPrice, matchedModelValues: 0, source, reason: "no-model-aspect" };
     marketCacheSet(key, data);
     res.json({ query: q, demo: false, ...data });
   } catch (e) {
