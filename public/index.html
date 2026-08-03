@@ -183,7 +183,7 @@
     </table>
 
     <div id="wholesaleSection" style="display:none">
-      <h2 class="sec">Wholesale — Cellular Professor (your cost)</h2>
+      <h2 class="sec">Wholesale (your cost)</h2>
       <div class="cards">
         <div class="card avglo"><div class="lab">Avg wholesale cost</div><div class="val" id="valWhAvg">—</div></div>
         <div class="card qty"><div class="lab">SKUs in stock</div><div class="val" id="valWhCount">—</div></div>
@@ -403,7 +403,7 @@
       }
     }
     $("status").textContent = "Searching live eBay…";
-    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay,cellularprofessor&limit=50")
+    fetch("/api/search?q=" + encodeURIComponent(q) + "&sources=ebay,wholesale&limit=50")
       .then(function(r){ return r.json(); })
       .then(function(data){
         $("demoBanner").style.display = data.demo ? "block" : "none";
@@ -459,7 +459,7 @@
   }
 
   function render(allItems){
-    // Split WHOLESALE (Cellular Professor cost) from MARKET (eBay resale). The
+    // Split WHOLESALE (your cost) from MARKET (eBay resale). The
     // market math below must ONLY ever see eBay items, or the avg price and quote
     // get corrupted by wholesale cost prices.
     var wholesale = (allItems || []).filter(function(i){ return i.wholesale; });
